@@ -115,20 +115,21 @@ class Attention(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, source_query, source_key_value):
-        # both inputs of shape (batch_size, seq_len, d_model)
-        # output of shape (batch_size, seq_len, d_v)
-        k = self.key(source_key_value) # (batch_size, seq_len, d_k)
-        q = self.query(source_query) # (batch_size, seq_len, d_k)
+        # source_query of shape (batch_size, seq_len_q, d_model)
+        # source_key_value of shape (batch_size, seq_len_kv, d_model)
+        # output of shape (batch_size, seq_len_q, d_v)
+        q = self.query(source_query) # (batch_size, seq_len_q, d_k)
+        k = self.key(source_key_value) # (batch_size, seq_len_kv, d_k)
         # compute attention scores ("affinities")
-        attention_weights = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len, d_k) @ (batch_size, d_k, seq_len) -> (batch_size, seq_len, seq_len)
+        attention_weights = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len_q, d_k) @ (batch_size, d_k, seq_len_kv) -> (batch_size, seq_len_q, seq_len_kv)
         if self.masked:
             mask = torch.tril(torch.ones(attention_weights.shape[1], attention_weights.shape[1]))
-            attention_weights = attention_weights.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len, seq_len)
-        attention_weights = F.softmax(attention_weights, dim=-1) # (batch_size, seq_len, seq_len)
+            attention_weights = attention_weights.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
+        attention_weights = F.softmax(attention_weights, dim=-1) # (batch_size, seq_len_q, seq_len_kv)
         attention_weights = self.dropout(attention_weights)
         # perform the weighted aggregation of the values
-        v = self.value(source_key_value) # (batch_size, seq_len, d_k)
-        out = attention_weights @ v # (batch_size, seq_len, seq_len) @ (batch_size, seq_len, d_v) -> (batch_size, seq_len, d_v)
+        v = self.value(source_key_value) # (batch_size, seq_len_kv, d_v)
+        out = attention_weights @ v # (batch_size, seq_len_q, seq_len_kv) @ (batch_size, seq_len_kv, d_v) -> (batch_size, seq_len_q, d_v)
         return out
 
 
@@ -142,8 +143,8 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, source_query, source_key_value):
-        out = torch.cat([h(source_query, source_key_value) for h in self.heads], dim=-1)
-        out = self.dropout(self.proj(out))
+        out = torch.cat([h(source_query, source_key_value) for h in self.heads], dim=-1) # (batch_size, seq_len_q, num_heads*d_v)
+        out = self.dropout(self.proj(out)) # (batch_size, seq_len_q, d_model)
         return out
 
 
