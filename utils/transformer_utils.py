@@ -179,16 +179,16 @@ class EncoderLayer(nn.Module):
         self.ln1 = nn.LayerNorm(d_model)
         self.ln2 = nn.LayerNorm(d_model)
 
-    def forward(self, x, x_padding_mask):
-        ln1 = self.ln1(x)
-        x = x + self.self_attention(
+    def forward(self, src, src_padding_mask):
+        ln1 = self.ln1(src)
+        sa = src + self.self_attention(
             source_query=ln1,
             source_key_value=ln1,
-            source_query_padding_mask=x_padding_mask,
-            source_key_value_padding_mask=x_padding_mask
+            source_query_padding_mask=src_padding_mask,
+            source_key_value_padding_mask=src_padding_mask
         )
-        x = x + self.ffwd(self.ln2(x))
-        return x
+        out = sa + self.ffwd(self.ln2(sa))
+        return out
 
 
 class DecoderLayer(nn.Module):
@@ -202,20 +202,20 @@ class DecoderLayer(nn.Module):
         self.ln3 = nn.LayerNorm(d_model)
         self.ln4 = nn.LayerNorm(d_model)
 
-    def forward(self, x, encoder_output, x_padding_mask, encoder_output_padding_mask):
-        ln1 = self.ln1(x)
-        x = x + self.self_attention(
+    def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask):
+        ln1 = self.ln1(tgt)
+        sa = tgt + self.self_attention(
             source_query=ln1,
             source_key_value=ln1,
-            source_query_padding_mask=x_padding_mask,
-            source_key_value_padding_mask=x_padding_mask
+            source_query_padding_mask=tgt_padding_mask,
+            source_key_value_padding_mask=tgt_padding_mask
         )
-        x = x + self.cross_attention(
-            source_query=self.ln2(x),
-            source_key_value=self.ln3(encoder_output),
-            source_query_padding_mask=x_padding_mask,
-            source_key_value_padding_mask=encoder_output_padding_mask
+        ca = sa + self.cross_attention(
+            source_query=self.ln2(sa),
+            source_key_value=self.ln3(memory),
+            source_query_padding_mask=tgt_padding_mask,
+            source_key_value_padding_mask=memory_padding_mask
         )
-        x = x + self.ffwd(self.ln4(x))
-        return x
+        out = ca + self.ffwd(self.ln4(ca))
+        return out
 
