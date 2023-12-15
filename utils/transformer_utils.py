@@ -105,7 +105,7 @@ def create_mask(src, tgt, PAD_IDX, DEVICE):
 
 
 class Attention(nn.Module):
-    def __init__(self, d_model, d_k, d_v, dropout, masked):
+    def __init__(self, d_model, d_k, d_v, dropout, masked, pad_idx):
         super().__init__()
         self.d_k = d_k
         self.key = nn.Linear(d_model, d_k, bias=False)
@@ -113,15 +113,23 @@ class Attention(nn.Module):
         self.value = nn.Linear(d_model, d_v, bias=False)
         self.masked = masked
         self.dropout = nn.Dropout(dropout)
+        self.pad_idx = pad_idx
 
-    def forward(self, source_query, source_key_value):
+    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
         # source_query of shape (batch_size, seq_len_q, d_model)
         # source_key_value of shape (batch_size, seq_len_kv, d_model)
+        # source_query_padding_mask of shape (batch_size, seq_len_q)
         # output of shape (batch_size, seq_len_q, d_v)
         q = self.query(source_query) # (batch_size, seq_len_q, d_k)
         k = self.key(source_key_value) # (batch_size, seq_len_kv, d_k)
         # compute attention scores ("affinities")
         attention_weights = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len_q, d_k) @ (batch_size, d_k, seq_len_kv) -> (batch_size, seq_len_q, seq_len_kv)
+        # padding mask
+        stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(dim=1).repeat(1, source_key_value.shape[1], 1).squeeze().transpose(-2, -1)
+        attention_weights = attention_weights.masked_fill(stretched_source_query_padding_mask, float('-inf'))
+        stretched_source_key_value_padding_mask = source_key_value_padding_mask.unsqueeze(dim=1).repeat(1, source_query.shape[1], 1).squeeze()
+        attention_weights = attention_weights.masked_fill(stretched_source_key_value_padding_mask, float('-inf'))
+        # autoregressive masking only makes sense for source_query == source_key_value
         if self.masked:
             mask = torch.tril(torch.ones(attention_weights.shape[1], attention_weights.shape[1]))
             attention_weights = attention_weights.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
@@ -172,9 +180,14 @@ class EncoderLayer(nn.Module):
         self.ln1 = nn.LayerNorm(d_model)
         self.ln2 = nn.LayerNorm(d_model)
 
-    def forward(self, x):
+    def forward(self, x, x_padding_mask):
         ln1 = self.ln1(x)
-        x = x + self.self_attention(source_query=ln1, source_key_value=ln1)
+        x = x + self.self_attention(
+            source_query=ln1,
+            source_key_value=ln1,
+            source_query_padding_mask=x_padding_mask,
+            source_key_value_padding_mask=x_padding_mask
+        )
         x = x + self.ffwd(self.ln2(x))
         return x
 
@@ -190,10 +203,20 @@ class DecoderLayer(nn.Module):
         self.ln3 = nn.LayerNorm(d_model)
         self.ln4 = nn.LayerNorm(d_model)
 
-    def forward(self, x, encoder_output):
+    def forward(self, x, encoder_output, x_padding_mask, encoder_output_padding_mask):
         ln1 = self.ln1(x)
-        x = x + self.self_attention(source_query=ln1, source_key_value=ln1)
-        x = x + self.cross_attention(source_query=self.ln2(x), source_key_value=self.ln3(encoder_output))
+        x = x + self.self_attention(
+            source_query=ln1,
+            source_key_value=ln1,
+            source_query_padding_mask=x_padding_mask,
+            source_key_value_padding_mask=x_padding_mask
+        )
+        x = x + self.cross_attention(
+            source_query=self.ln2(x),
+            source_key_value=self.ln3(encoder_output),
+            source_query_padding_mask=x_padding_mask,
+            source_key_value_padding_mask=encoder_output_padding_mask
+        )
         x = x + self.ffwd(self.ln4(x))
         return x
 
