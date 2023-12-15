@@ -2,6 +2,7 @@ from torch import Tensor
 import torch
 import torch.nn as nn
 from torch.nn import Transformer
+from torch.nn import functional as F
 import math
 
 # helper Module that adds positional encoding to the token embedding to introduce a notion of word order.
@@ -85,7 +86,7 @@ class Seq2SeqTransformer(nn.Module):
 
 
 def generate_square_subsequent_mask(sz, DEVICE):
-    mask = (torch.triu(torch.ones((sz, sz), device=DEVICE)) == 1).transpose(0, 1)
+    mask = (torch.tril(torch.ones((sz, sz), device=DEVICE)))
     mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
     return mask
 
@@ -99,3 +100,99 @@ def create_mask(src, tgt, PAD_IDX, DEVICE):
     src_padding_mask = (src == PAD_IDX).transpose(0, 1)
     tgt_padding_mask = (tgt == PAD_IDX).transpose(0, 1)
     return src_mask, tgt_mask, src_padding_mask, tgt_padding_mask
+
+
+
+
+class Attention(nn.Module):
+    def __init__(self, d_model, d_k, d_v, dropout, masked):
+        super().__init__()
+        self.d_k = d_k
+        self.key = nn.Linear(d_model, d_k, bias=False)
+        self.query = nn.Linear(d_model, d_k, bias=False)
+        self.value = nn.Linear(d_model, d_v, bias=False)
+        self.masked = masked
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, source_query, source_key_value):
+        # both inputs of shape (batch_size, seq_len, d_model)
+        # output of shape (batch_size, seq_len, d_v)
+        k = self.key(source_key_value) # (batch_size, seq_len, d_k)
+        q = self.query(source_query) # (batch_size, seq_len, d_k)
+        # compute attention scores ("affinities")
+        attention_weights = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len, d_k) @ (batch_size, d_k, seq_len) -> (batch_size, seq_len, seq_len)
+        if self.masked:
+            mask = torch.tril(torch.ones(attention_weights.shape[1], attention_weights.shape[1]))
+            attention_weights = attention_weights.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len, seq_len)
+        attention_weights = F.softmax(attention_weights, dim=-1) # (batch_size, seq_len, seq_len)
+        attention_weights = self.dropout(attention_weights)
+        # perform the weighted aggregation of the values
+        v = self.value(source_key_value) # (batch_size, seq_len, d_k)
+        out = attention_weights @ v # (batch_size, seq_len, seq_len) @ (batch_size, seq_len, d_v) -> (batch_size, seq_len, d_v)
+        return out
+
+
+class MultiHeadAttention(nn.Module):
+    """ multiple heads of self-attention in parallel """
+
+    def __init__(self, num_heads, d_model, d_k, d_v, dropout, masked):
+        super().__init__()
+        self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, dropout, masked) for _ in range(num_heads)])
+        self.proj = nn.Linear(num_heads * d_v, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, source_query, source_key_value):
+        out = torch.cat([h(source_query, source_key_value) for h in self.heads], dim=-1)
+        out = self.dropout(self.proj(out))
+        return out
+
+
+class FeedFoward(nn.Module):
+    """ a simple linear layer followed by a non-linearity """
+
+    def __init__(self, d_model, d_ff, dropout):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.ReLU(),
+            nn.Linear(d_ff, d_model),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class EncoderLayer(nn.Module):
+    def __init__(self, num_heads, d_model, d_k, d_v, d_ff, dropout):
+        super().__init__()
+        self.self_attention = MultiHeadAttention(num_heads, d_model, d_k, d_v, dropout, masked=False)
+        self.ffwd = FeedFoward(d_model, d_ff, dropout)
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
+
+    def forward(self, x):
+        ln1 = self.ln1(x)
+        x = x + self.self_attention(source_query=ln1, source_key_value=ln1)
+        x = x + self.ffwd(self.ln2(x))
+        return x
+
+
+class DecoderLayer(nn.Module):
+    def __init__(self, num_heads, d_model, d_k, d_v, d_ff, dropout):
+        super().__init__()
+        self.self_attention = MultiHeadAttention(num_heads, d_model, d_k, d_v, dropout, masked=True)
+        self.cross_attention = MultiHeadAttention(num_heads, d_model, d_k, d_v, dropout, masked=False)
+        self.ffwd = FeedFoward(d_model, d_ff, dropout)
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.ln3 = nn.LayerNorm(d_model)
+        self.ln4 = nn.LayerNorm(d_model)
+
+    def forward(self, x, encoder_output):
+        ln1 = self.ln1(x)
+        x = x + self.self_attention(source_query=ln1, source_key_value=ln1)
+        x = x + self.cross_attention(source_query=self.ln2(x), source_key_value=self.ln3(encoder_output))
+        x = x + self.ffwd(self.ln4(x))
+        return x
+
