@@ -9,14 +9,14 @@ import math
 class PositionalEncoding(nn.Module):
     def __init__(
         self,
-        emb_size: int,
+        d_model: int,
         dropout: float,
         maxlen: int = 5000
     ):
         super(PositionalEncoding, self).__init__()
-        den = torch.exp(- torch.arange(0, emb_size, 2) * math.log(10000) / emb_size) # this equates to 1 / 10000^(2i/d_model) with 2i in torch.arange(0, emb_size, 2)
+        den = torch.exp(- torch.arange(0, d_model, 2) * math.log(10000) / d_model) # this equates to 1 / 10000^(2i/d_model) with 2i in torch.arange(0, d_model, 2)
         pos = torch.arange(0, maxlen).unsqueeze(1)
-        pos_embedding = torch.zeros((maxlen, emb_size))
+        pos_embedding = torch.zeros((maxlen, d_model))
         pos_embedding[:, 0::2] = torch.sin(pos * den) # this is PE_(pos, 2i)
         pos_embedding[:, 1::2] = torch.cos(pos * den) # this is PE_(pos, 2i+1)
         pos_embedding = pos_embedding.unsqueeze(-2)
@@ -29,36 +29,36 @@ class PositionalEncoding(nn.Module):
 
 # helper Module to convert tensor of input indices into corresponding tensor of token embeddings
 class TokenEmbedding(nn.Module):
-    def __init__(self, vocab_size: int, emb_size):
+    def __init__(self, vocab_size: int, d_model):
         super(TokenEmbedding, self).__init__()
-        self.embedding = nn.Embedding(vocab_size, emb_size)
-        self.emb_size = emb_size
+        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.d_model = d_model
 
     def forward(self, tokens: Tensor):
-        return self.embedding(tokens.long()) * math.sqrt(self.emb_size)
+        return self.embedding(tokens.long()) * math.sqrt(self.d_model)
 
 # Seq2Seq Network
 class Seq2SeqTransformer(nn.Module):
     def __init__(self,
                  num_encoder_layers: int,
                  num_decoder_layers: int,
-                 emb_size: int,
+                 d_model: int,
                  nhead: int,
                  src_vocab_size: int,
                  tgt_vocab_size: int,
                  dim_feedforward: int = 512,
                  dropout: float = 0.1):
         super(Seq2SeqTransformer, self).__init__()
-        self.transformer = Transformer(d_model=emb_size,
+        self.transformer = Transformer(d_model=d_model,
                                        nhead=nhead,
                                        num_encoder_layers=num_encoder_layers,
                                        num_decoder_layers=num_decoder_layers,
                                        dim_feedforward=dim_feedforward,
                                        dropout=dropout)
-        self.generator = nn.Linear(emb_size, tgt_vocab_size)
-        self.src_tok_emb = TokenEmbedding(src_vocab_size, emb_size)
-        self.tgt_tok_emb = TokenEmbedding(tgt_vocab_size, emb_size)
-        self.positional_encoding = PositionalEncoding(emb_size, dropout=dropout)
+        self.generator = nn.Linear(d_model, tgt_vocab_size)
+        self.src_tok_emb = TokenEmbedding(src_vocab_size, d_model)
+        self.tgt_tok_emb = TokenEmbedding(tgt_vocab_size, d_model)
+        self.positional_encoding = PositionalEncoding(d_model, dropout=dropout)
 
     def forward(self,
                 src: Tensor,
@@ -149,8 +149,8 @@ class MultiHeadAttention(nn.Module):
         self.proj = nn.Linear(num_heads * d_v, d_model)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, source_query, source_key_value):
-        out = torch.cat([h(source_query, source_key_value) for h in self.heads], dim=-1) # (batch_size, seq_len_q, num_heads*d_v)
+    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
+        out = torch.cat([h(source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask) for h in self.heads], dim=-1) # (batch_size, seq_len_q, num_heads*d_v)
         out = self.dropout(self.proj(out)) # (batch_size, seq_len_q, d_model)
         return out
 
