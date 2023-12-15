@@ -172,12 +172,12 @@ class FeedFoward(nn.Module):
 
 
 class EncoderLayer(nn.Module):
-    def __init__(self, num_heads, d_model, d_k, d_v, d_ff, dropout, device):
+    def __init__(self, num_heads, d_model, d_k, d_v, d_ff, dropout):
         super().__init__()
         self.self_attention = MultiHeadAttention(num_heads, d_model, d_k, d_v, dropout, masked=False)
         self.ffwd = FeedFoward(d_model, d_ff, dropout)
-        self.ln1 = nn.LayerNorm(d_model, device=device)
-        self.ln2 = nn.LayerNorm(d_model, device=device)
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
 
     def forward(self, src, src_padding_mask):
         ln1 = self.ln1(src)
@@ -192,15 +192,15 @@ class EncoderLayer(nn.Module):
 
 
 class DecoderLayer(nn.Module):
-    def __init__(self, num_heads, d_model, d_k, d_v, d_ff, dropout, device):
+    def __init__(self, num_heads, d_model, d_k, d_v, d_ff, dropout):
         super().__init__()
         self.self_attention = MultiHeadAttention(num_heads, d_model, d_k, d_v, dropout, masked=True)
         self.cross_attention = MultiHeadAttention(num_heads, d_model, d_k, d_v, dropout, masked=False)
         self.ffwd = FeedFoward(d_model, d_ff, dropout)
-        self.ln1 = nn.LayerNorm(d_model, device=device)
-        self.ln2 = nn.LayerNorm(d_model, device=device)
-        self.ln3 = nn.LayerNorm(d_model, device=device)
-        self.ln4 = nn.LayerNorm(d_model, device=device)
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.ln3 = nn.LayerNorm(d_model)
+        self.ln4 = nn.LayerNorm(d_model)
 
     def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask):
         ln1 = self.ln1(tgt)
