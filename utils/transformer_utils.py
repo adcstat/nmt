@@ -105,7 +105,7 @@ def create_mask(src, tgt, PAD_IDX, DEVICE):
 
 
 class Attention(nn.Module):
-    def __init__(self, d_model, d_k, d_v, dropout, masked, pad_idx):
+    def __init__(self, d_model, d_k, d_v, dropout, masked):
         super().__init__()
         self.d_k = d_k
         self.key = nn.Linear(d_model, d_k, bias=False)
@@ -113,7 +113,6 @@ class Attention(nn.Module):
         self.value = nn.Linear(d_model, d_v, bias=False)
         self.masked = masked
         self.dropout = nn.Dropout(dropout)
-        self.pad_idx = pad_idx
 
     def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
         # source_query of shape (batch_size, seq_len_q, d_model)
