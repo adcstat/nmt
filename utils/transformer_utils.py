@@ -1,7 +1,6 @@
 from torch import Tensor
 import torch
 import torch.nn as nn
-from torch.nn import Transformer
 from torch.nn import functional as F
 import math
 
