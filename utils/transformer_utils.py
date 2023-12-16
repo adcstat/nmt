@@ -177,9 +177,6 @@ class Transformer(nn.Module):
         self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
         self.unembedding = nn.Linear(d_model, tgt_vocab_size)
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
