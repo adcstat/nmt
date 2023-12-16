@@ -200,8 +200,8 @@ class Transformer(nn.Module):
         src_padding_mask: Tensor,
         tgt_padding_mask: Tensor
     ):
-        self.encode(src, src_padding_mask)
-        self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
+        enc = self.encode(src, src_padding_mask)
+        dec = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
 
         decoder_output_norm = self.ln_final(dec)
         logits = self.unembedding(decoder_output_norm)
