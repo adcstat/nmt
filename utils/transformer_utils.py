@@ -181,23 +181,27 @@ class Transformer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
+    def encode(self, src: Tensor, src_padding_mask: Tensor):
+        enc = self.positional_encoding(self.src_tok_emb(src))
+        for layer in self.encoder:
+            enc = layer(enc, src_padding_mask)
+        return enc
+
+    def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
+        dec = self.positional_encoding(self.tgt_tok_emb(tgt))
+        for layer in self.decoder:
+            dec = layer(dec, enc, tgt_padding_mask, src_padding_mask)
+        return dec
+
     def forward(
         self,
         src: Tensor,
         tgt: Tensor,
         src_padding_mask: Tensor,
-        tgt_padding_mask: Tensor,
+        tgt_padding_mask: Tensor
     ):
-        src_emb = self.positional_encoding(self.src_tok_emb(src))
-        tgt_emb = self.positional_encoding(self.tgt_tok_emb(tgt))
-
-        enc = src_emb
-        for layer in self.encoder:
-            enc = layer(enc, src_padding_mask)
-
-        dec = tgt_emb
-        for layer in self.decoder:
-            dec = layer(dec, enc, tgt_padding_mask, src_padding_mask)
+        self.encode(src, src_padding_mask)
+        self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
 
         decoder_output_norm = self.ln_final(dec)
         logits = self.unembedding(decoder_output_norm)
