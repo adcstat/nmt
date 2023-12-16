@@ -17,12 +17,10 @@ class PositionalEncoding(nn.Module):
         pos_embedding = torch.zeros((maxlen, d_model))
         pos_embedding[:, 0::2] = torch.sin(pos * den) # this is PE_(pos, 2i)
         pos_embedding[:, 1::2] = torch.cos(pos * den) # this is PE_(pos, 2i+1)
-        pos_embedding = pos_embedding.unsqueeze(-2)
-
         self.register_buffer('pos_embedding', pos_embedding)
 
     def forward(self, token_embedding: Tensor):
-        return token_embedding + self.pos_embedding[:token_embedding.size(0), :]
+        return token_embedding + self.pos_embedding[:token_embedding.shape[1]]
 
 # helper Module to convert tensor of input indices into corresponding tensor of token embeddings
 class TokenEmbedding(nn.Module):
