@@ -63,6 +63,8 @@ class Attention(nn.Module):
             mask = mask.to(source_query.device)
             attention_weights = attention_weights.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
         attention_weights = F.softmax(attention_weights, dim=-1) # (batch_size, seq_len_q, seq_len_kv)
+        # since the rows and pad tokens only contain -inf and therefore nan after softmax we replace with 0 
+        attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
         attention_weights = self.dropout(attention_weights)
         # perform the weighted aggregation of the values
         v = self.value(source_key_value) # (batch_size, seq_len_kv, d_v)
