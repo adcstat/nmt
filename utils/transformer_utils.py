@@ -238,8 +238,8 @@ class Transformer(nn.Module):
         self.tgt_tok_emb = TokenEmbedding(tgt_vocab_size, d_model)
         self.positional_encoding = PositionalEncoding(d_model)
 
-        self.encoder = nn.Sequential(*[EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
-        self.decoder = nn.Sequential(*[DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
+        self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
+        self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
         self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
         self.unembedding = nn.Linear(d_model, tgt_vocab_size)
@@ -264,10 +264,15 @@ class Transformer(nn.Module):
         src_emb = self.positional_encoding(self.src_tok_emb(src))
         tgt_emb = self.positional_encoding(self.tgt_tok_emb(tgt))
 
-        memory = self.encoder(src_emb, src_padding_mask)
-        decoder_output = self.decoder(tgt_emb, memory, tgt_padding_mask, src_padding_mask)
+        enc = src_emb
+        for layer in self.encoder:
+            enc = layer(enc, src_padding_mask)
 
-        decoder_output_norm = self.ln_final(decoder_output)
+        dec = tgt_emb
+        for layer in self.decoder:
+            dec = layer(dec, enc, tgt_padding_mask, src_padding_mask)
+
+        decoder_output_norm = self.ln_final(dec)
         logits = self.unembedding(decoder_output_norm)
 
         return logits
