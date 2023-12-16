@@ -204,6 +204,6 @@ class Transformer(nn.Module):
         enc = self.encode(src, src_padding_mask)
         dec = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
 
-        logits = self.unembedding(decoder_output_norm)
+        logits = self.unembedding(dec)
 
         return logits
