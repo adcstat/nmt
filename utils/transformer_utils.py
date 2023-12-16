@@ -191,6 +191,7 @@ class Transformer(nn.Module):
         dec = self.positional_encoding(self.tgt_tok_emb(tgt))
         for layer in self.decoder:
             dec = layer(dec, enc, tgt_padding_mask, src_padding_mask)
+        dec = self.ln_final(dec)
         return dec
 
     def forward(
@@ -203,7 +204,6 @@ class Transformer(nn.Module):
         enc = self.encode(src, src_padding_mask)
         dec = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
 
-        decoder_output_norm = self.ln_final(dec)
         logits = self.unembedding(decoder_output_norm)
 
         return logits
