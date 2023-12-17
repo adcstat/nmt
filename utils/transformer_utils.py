@@ -53,9 +53,9 @@ class Attention(nn.Module):
         # compute attention scores ("affinities")
         attention_weights = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len_q, d_k) @ (batch_size, d_k, seq_len_kv) -> (batch_size, seq_len_q, seq_len_kv)
         # padding mask
-        stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(dim=1).repeat(1, source_key_value.shape[1], 1).squeeze(dim=-1).transpose(-2, -1)
+        stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(dim=1).repeat(1, source_key_value.shape[1], 1).transpose(-2, -1)
         attention_weights = attention_weights.masked_fill(stretched_source_query_padding_mask, float('-inf'))
-        stretched_source_key_value_padding_mask = source_key_value_padding_mask.unsqueeze(dim=1).repeat(1, source_query.shape[1], 1).squeeze(dim=-1)
+        stretched_source_key_value_padding_mask = source_key_value_padding_mask.unsqueeze(dim=1).repeat(1, source_query.shape[1], 1)
         attention_weights = attention_weights.masked_fill(stretched_source_key_value_padding_mask, float('-inf'))
         # autoregressive masking only makes sense for source_query == source_key_value
         if self.masked:
