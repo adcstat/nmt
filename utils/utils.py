@@ -77,7 +77,7 @@ def beam_search(
     top_prob_idx_flat = top_prob_idx.flatten()
     # take best according to new normalized probs
     Y = Y[top_prob_idx_flat]
-    probabilities = probabilities.flatten()[top_prob_idx_flat]
+    probabilities = probabilities.flatten()[top_prob_idx_flat].reshape(batch_size, beam_width) 
 
     Y = Y.reshape(batch_size, beam_width, -1) # (batch_size, beam_width, max_len)
     if only_best:
