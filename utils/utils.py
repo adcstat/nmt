@@ -48,10 +48,5 @@ def beam_search(
         Y = Y[best_candidates.flatten()]
         # concat next tokens
         Y = torch.cat((Y, next_tokens), axis = 1)
-    # get highset prob for every batch element and beam
-    final_probs, _ = next_probabilities.reshape(batch_size, beam_width, -1).topk(k = 1, axis = -1)
-    # for every batch get beam with highest prob
-    _, best_of_all_candidates = final_probs.squeeze(-1).topk(k = 1, axis = -1)
-    # index correction
-    best_of_all_candidates += torch.arange(batch_size, device = device).unsqueeze(-1) * beam_width
-    return Y[best_of_all_candidates].squeeze(1)
+    # return first beam of every batch (thats the one with highest probability)
+    return Y[torch.arange(batch_size, device = device) * beam_width]
