@@ -10,7 +10,8 @@ def beam_search(
     device,
     max_len = 20,
     beam_width = 5,
-    only_best: bool = False
+    only_best: bool = False,
+    length_norm_exp: float = 0.6
 ):
     model.eval()
     batch_size = X.shape[0]
@@ -65,8 +66,21 @@ def beam_search(
                 row[i] = True
     Y = Y.masked_fill(pad_after_eos_mask, pad_symbol)
 
+    # length normalization
+    ## calculate true length of beam sequences 
+    lengths = torch.zeros(batch_size * beam_width).fill_(max_len-1).to(device) - pad_after_eos_mask.sum(dim=-1)
+    # normalize
+    probabilities = top_probabilities.flatten() / lengths**length_norm_exp
+    probabilities = probabilities.reshape(batch_size, beam_width)
+    _, top_prob_idx = probabilities.topk(k=beam_width, dim=-1)
+    top_prob_idx += torch.arange(batch_size).unsqueeze(-1).to(device) * beam_width
+    top_prob_idx_flat = top_prob_idx.flatten()
+    # take best according to new normalized probs
+    Y = Y[top_prob_idx_flat]
+    probabilities = probabilities.flatten()[top_prob_idx_flat]
+
     Y = Y.reshape(batch_size, beam_width, -1) # (batch_size, beam_width, max_len)
     if only_best:
         # return first beam of every batch (thats the one with highest probability)
         return Y[:, 0, :]
-    return Y, top_probabilities
+    return Y, probabilities
