@@ -8,7 +8,8 @@ def beam_search(
     pad_symbol,
     device,
     max_len = 20,
-    beam_width = 5
+    beam_width = 5,
+    only_best: bool = False
 ):
     model.eval()
     batch_size = X.shape[0]
@@ -51,4 +52,6 @@ def beam_search(
         # concat next tokens
         Y = torch.cat((Y, next_tokens), axis = 1)
     # return first beam of every batch (thats the one with highest probability)
-    return Y[torch.arange(batch_size, device = device) * beam_width]
+    if only_best:
+        return Y[torch.arange(batch_size, device = device) * beam_width]
+    return Y, top_probabilities
