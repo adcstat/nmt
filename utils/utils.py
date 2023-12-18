@@ -6,6 +6,7 @@ def beam_search(
     X,
     start_symbol,
     pad_symbol,
+    end_symbol,
     device,
     max_len = 20,
     beam_width = 5,
@@ -51,6 +52,19 @@ def beam_search(
         Y = Y[best_candidates.flatten()]
         # concat next tokens
         Y = torch.cat((Y, next_tokens), axis = 1)
+
+    # replace everything after eos token with pad token
+    pad_after_eos_mask = Y == end_symbol
+    for row in pad_after_eos_mask:
+        first_true_found = False
+        for i, val in enumerate(row):
+            if val and not first_true_found:
+                row[i] = False
+                first_true_found = True
+            elif first_true_found:
+                row[i] = True
+    Y = Y.masked_fill(pad_after_eos_mask, pad_symbol)
+
     Y = Y.reshape(batch_size, beam_width, -1) # (batch_size, beam_width, max_len)
     if only_best:
         # return first beam of every batch (thats the one with highest probability)
