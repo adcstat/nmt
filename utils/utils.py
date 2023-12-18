@@ -38,7 +38,7 @@ def beam_search(
         # adding log probs instead multiplying probs
         next_probabilities += next_logits.log_softmax(-1)
         # search for highest beam_width probabilites within each batch
-        top_probabilities, idx = next_probabilities.reshape(batch_size, -1).topk(k = beam_width, axis = -1) # idx (batch_size, beam_width)
+        top_probabilities, idx = next_probabilities.reshape(batch_size, -1).topk(k = beam_width, axis = -1) # (batch_size, beam_width)
         # update to top probabilities
         next_probabilities = top_probabilities.flatten().unsqueeze(-1).repeat(1, vocabulary_size)
         # calculate which tokens correspond to the highest probs
@@ -46,12 +46,13 @@ def beam_search(
         # lookup which current candidates correspond to the highest probs
         best_candidates = idx // vocabulary_size # (batch_size, beam_width)
         # add correct starting index for batches
-        best_candidates += torch.arange(batch_size, device = X.device).unsqueeze(-1) * beam_width
+        best_candidates += torch.arange(batch_size, device=device).unsqueeze(-1) * beam_width
         # choose correct beam paths from Y
         Y = Y[best_candidates.flatten()]
         # concat next tokens
         Y = torch.cat((Y, next_tokens), axis = 1)
-    # return first beam of every batch (thats the one with highest probability)
+    Y = Y.reshape(batch_size, beam_width, -1) # (batch_size, beam_width, max_len)
     if only_best:
-        return Y[torch.arange(batch_size, device = device) * beam_width]
+        # return first beam of every batch (thats the one with highest probability)
+        return Y[:, 0, :]
     return Y, top_probabilities
