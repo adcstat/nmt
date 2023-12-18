@@ -16,11 +16,13 @@ def beam_search(
     src_padding_mask = X == pad_symbol
     tgt_padding_mask = Y == pad_symbol
     enc = model.encode(X, src_padding_mask)
-    dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)
+    # get decoding for last last token in Y
+    dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)[:, -1, :] # (batch_size, d_model)
     # get logits for next predicted token
-    logits = model.unembedding(dec[:, -1, :]) # (batch_size, 1, tgt_vocab_size)
+    logits = model.unembedding(dec) # (batch_size, tgt_vocab_size)
     vocabulary_size = logits.shape[-1]
-    next_probabilities, next_tokens = logits.log_softmax(-1).topk(k = beam_width, axis = -1)
+    # search for highest beam_width probabilites within each batch
+    next_probabilities, next_tokens = logits.log_softmax(-1).topk(k = beam_width, axis = -1) # (batch_size, beam_width)
     # make form (sample_1, sample_1, ...., sample_n)
     Y = Y.repeat((beam_width, 1)) # (batch_size*beam_width, 1)
     Y = torch.cat((Y, next_tokens.flatten().unsqueeze(dim=1)), dim=-1) # (batch_size*beam_width, 2)
@@ -30,8 +32,8 @@ def beam_search(
     enc = model.encode(X, src_padding_mask) # (batch_size*beam_width, src_seq_len, d_model)
     for _ in range(max_len - 1):
         tgt_padding_mask = Y == pad_symbol
-        dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask) # (batch_size*beam_width, i, d_model)
-        next_logits = model.unembedding(dec[:, -1, :]) # (batch_size*beam_width, tgt_vocab_size)
+        dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)[:, -1, :] # (batch_size*beam_width, d_model)
+        next_logits = model.unembedding(dec) # (batch_size*beam_width, tgt_vocab_size)
         # adding log probs instead multiplying probs
         next_probabilities += next_logits.log_softmax(-1)
         # search for highest beam_width probabilites within each batch
@@ -42,9 +44,9 @@ def beam_search(
         next_tokens = torch.remainder(idx, vocabulary_size).flatten().unsqueeze(-1) # (batch_size*beam_width, 1)
         # lookup which current candidates correspond to the highest probs
         best_candidates = idx // vocabulary_size # (batch_size, beam_width)
-        # add right starting index for batches
+        # add correct starting index for batches
         best_candidates += torch.arange(batch_size, device = X.device).unsqueeze(-1) * beam_width
-        # choose right beam paths from Y
+        # choose correct beam paths from Y
         Y = Y[best_candidates.flatten()]
         # concat next tokens
         Y = torch.cat((Y, next_tokens), axis = 1)
