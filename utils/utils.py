@@ -68,7 +68,7 @@ def beam_search(
 
     # length normalization
     ## calculate true length of beam sequences 
-    lengths = torch.zeros(batch_size, beam_width).fill_(max_len-1).to(device) - pad_after_eos_mask.sum(dim=-1).reshape(batch_size, beam_width)
+    lengths = torch.zeros(batch_size, beam_width).fill_(max_len).to(device) - pad_after_eos_mask.sum(dim=-1).reshape(batch_size, beam_width)
     # normalize
     probabilities = top_probabilities / lengths**length_norm_exp
     _, top_prob_idx = probabilities.sort(dim=-1, descending=True)
