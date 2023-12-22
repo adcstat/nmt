@@ -138,3 +138,64 @@ def evaluate(model, mode: str):
                 all_target_seqs.append([target_words])
 
     return bleu_score(all_predicted_seqs, all_target_seqs)
+
+
+tokenizer_src = get_tokenizer('spacy', language='de_core_news_sm')
+tokenizer_tgt = get_tokenizer('spacy', language='en_core_web_sm')
+
+# Define special symbols and indices
+UNK_IDX, PAD_IDX, BOS_IDX, EOS_IDX = 0, 1, 2, 3
+# Make sure the tokens are in order of their indices to properly insert them in vocab
+special_symbols = ['<unk>', '<pad>', '<bos>', '<eos>']
+
+# helper function to yield list of tokens
+def yield_tokens(data_iter: Iterable, tokenizer, index) -> List[str]:
+    for data_sample in data_iter:
+        yield tokenizer(data_sample['translation'][index])
+
+# Create torchtext's Vocab object
+vocab_src = build_vocab_from_iterator(
+    yield_tokens(train_iter, tokenizer_src, "de"),
+    min_freq=1,
+    specials=special_symbols,
+    special_first=True
+)
+vocab_tgt = build_vocab_from_iterator(
+    yield_tokens(train_iter, tokenizer_tgt, "en"),
+    min_freq=1,
+    specials=special_symbols,
+    special_first=True
+)
+
+# Set ``UNK_IDX`` as the default index. This index is returned when the token is not found.
+# If not set, it throws ``RuntimeError`` when the queried token is not found in the Vocabulary.
+vocab_src.set_default_index(UNK_IDX)
+vocab_tgt.set_default_index(UNK_IDX)
+
+
+# function to add BOS/EOS and create tensor for input sequence indices
+def add_bos_eos(token_ids: List[int]):
+    return torch.cat((torch.tensor([BOS_IDX]), torch.tensor(token_ids), torch.tensor([EOS_IDX])))
+
+# helper function to club together sequential operations
+def sequential_transforms(*transforms):
+    def func(txt_input):
+        for transform in transforms:
+            txt_input = transform(txt_input)
+        return txt_input
+    return func
+
+# ``src`` and ``tgt`` language text transforms to convert raw strings into tensors indices
+string_to_indices_src = sequential_transforms(tokenizer_src, vocab_src, add_bos_eos)
+string_to_indices_tgt = sequential_transforms(tokenizer_tgt, vocab_tgt, add_bos_eos)
+
+# function to collate data samples into batch tensors
+def collate_fn(batch):
+    src_batch, tgt_batch = [], []
+    for sample in batch:
+        src_batch.append(string_to_indices_src(sample['translation']["de"].rstrip("\n")))
+        tgt_batch.append(string_to_indices_tgt(sample['translation']["en"].rstrip("\n")))
+
+    src_batch = pad_sequence(src_batch, padding_value=PAD_IDX, batch_first=True)
+    tgt_batch = pad_sequence(tgt_batch, padding_value=PAD_IDX, batch_first=True)
+    return src_batch, tgt_batch
