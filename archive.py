@@ -199,3 +199,33 @@ def collate_fn(batch):
     src_batch = pad_sequence(src_batch, padding_value=PAD_IDX, batch_first=True)
     tgt_batch = pad_sequence(tgt_batch, padding_value=PAD_IDX, batch_first=True)
     return src_batch, tgt_batch
+
+
+def evaluate_beam_search(model, beam_width: int):
+    model.eval()
+    all_predicted_seqs = []
+    all_target_seqs = []
+
+    for src, tgt in val_dataloader:
+        src = src.to(DEVICE)
+        tgt = tgt.to(DEVICE)
+
+        predicted_seqs = utils.beam_search(model, src, BOS_IDX, PAD_IDX, EOS_IDX, DEVICE, src.shape[1] + 5, beam_width, True)
+
+        # Convert predicted and target sequences to the format expected by bleu_score
+        for i in range(src.shape[0]):
+            predicted_seq = predicted_seqs[i]
+            tgt_seq = tgt[i]
+
+            # Convert to words or subword tokens as required
+            predicted_words = vocab_tgt.lookup_tokens(predicted_seq.tolist())
+            predicted_words = [tok for tok in predicted_words if tok not in ["<bos>", "<pad>", "<eos>"]]
+            target_words = vocab_tgt.lookup_tokens(tgt_seq.tolist())
+            target_words = [tok for tok in target_words if tok not in ["<bos>", "<pad>", "<eos>"]]
+
+            all_predicted_seqs.append(predicted_words)
+            all_target_seqs.append([target_words])
+
+    return bleu_score(all_predicted_seqs, all_target_seqs)
+
+

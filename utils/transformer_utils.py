@@ -157,8 +157,7 @@ class DecoderLayer(nn.Module):
 class Transformer(nn.Module):
     def __init__(
         self,
-        src_vocab_size,
-        tgt_vocab_size,
+        vocab_size,
         d_model,
         n_heads,
         d_ff,
@@ -167,28 +166,27 @@ class Transformer(nn.Module):
         dropout
     ):
         super().__init__()
-        self.src_tok_emb = TokenEmbedding(src_vocab_size, d_model)
-        self.tgt_tok_emb = TokenEmbedding(tgt_vocab_size, d_model)
+        self.tok_emb = TokenEmbedding(vocab_size, d_model)
         self.positional_encoding = PositionalEncoding(d_model)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
         self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
-        self.unembedding = nn.Linear(d_model, tgt_vocab_size)
+        self.unembedding = nn.Linear(d_model, vocab_size)
 
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
-        enc = self.positional_encoding(self.src_tok_emb(src))
+        enc = self.positional_encoding(self.tok_emb(src))
         for layer in self.encoder:
             enc = layer(enc, src_padding_mask)
         return enc
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
-        dec = self.positional_encoding(self.tgt_tok_emb(tgt))
+        dec = self.positional_encoding(self.tok_emb(tgt))
         for layer in self.decoder:
             dec = layer(dec, enc, tgt_padding_mask, src_padding_mask)
         dec = self.ln_final(dec)
