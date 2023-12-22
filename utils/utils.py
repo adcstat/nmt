@@ -15,7 +15,7 @@ def beam_search(
 ):
     model.eval()
     batch_size = X.shape[0]
-    Y = torch.ones(batch_size, 1).fill_(start_symbol).type(torch.long).to(device) # (batch_size, 1)
+    Y = torch.ones(batch_size, 1, device=device).fill_(start_symbol).type(torch.long) # (batch_size, 1)
     src_padding_mask = X == pad_symbol
     tgt_padding_mask = Y == pad_symbol
     enc = model.encode(X, src_padding_mask)
@@ -68,11 +68,11 @@ def beam_search(
 
     # length normalization
     ## calculate true length of beam sequences 
-    lengths = torch.zeros(batch_size, beam_width).fill_(max_len).to(device) - pad_after_eos_mask.sum(dim=-1).reshape(batch_size, beam_width)
+    lengths = torch.zeros(batch_size, beam_width, device=device).fill_(max_len) - pad_after_eos_mask.sum(dim=-1).reshape(batch_size, beam_width)
     # normalize
     probabilities = top_probabilities / lengths**length_norm_exp
     _, top_prob_idx = probabilities.sort(dim=-1, descending=True)
-    top_prob_idx += torch.arange(batch_size).unsqueeze(-1).to(device) * beam_width
+    top_prob_idx += torch.arange(batch_size, device=device).unsqueeze(-1) * beam_width
     # take best according to new normalized probs
     Y = Y[top_prob_idx.flatten()]
     probabilities = probabilities.take(top_prob_idx)

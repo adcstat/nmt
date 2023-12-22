@@ -59,8 +59,7 @@ class Attention(nn.Module):
         attention_weights = attention_weights.masked_fill(stretched_source_key_value_padding_mask, float('-inf'))
         # autoregressive masking only makes sense for source_query == source_key_value
         if self.masked:
-            mask = torch.tril(torch.ones(attention_weights.shape[1], attention_weights.shape[1]))
-            mask = mask.to(source_query.device)
+            mask = torch.tril(torch.ones(attention_weights.shape[1], attention_weights.shape[1], device=source_query.device))
             attention_weights = attention_weights.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
         attention_weights = F.softmax(attention_weights, dim=-1) # (batch_size, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0 
