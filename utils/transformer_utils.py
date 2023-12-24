@@ -172,7 +172,7 @@ class Transformer(nn.Module):
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
         self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
-        self.unembedding = nn.Linear(d_model, vocab_size)
+        # self.unembedding = nn.Linear(d_model, vocab_size)
 
         for p in self.parameters():
             if p.dim() > 1:
@@ -201,6 +201,8 @@ class Transformer(nn.Module):
         enc = self.encode(src, src_padding_mask)
         dec = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
 
-        logits = self.unembedding(dec)
+        # logits = self.unembedding(dec)
+        logits = dec.reshape(dec.shape[0] * dec.shape[1], -1) @ self.tok_emb.embedding.weight.data.T
+        logits = logits.reshape(dec.shape[0], dec.shape[1], -1)
 
         return logits
