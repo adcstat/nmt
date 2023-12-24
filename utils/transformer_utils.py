@@ -79,7 +79,7 @@ class MultiHeadAttention(nn.Module):
         d_k = d_model // n_heads
         d_v = d_k
         self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, dropout, masked) for _ in range(n_heads)])
-        self.proj = nn.Linear(n_heads * d_v, d_model)
+        self.proj = nn.Linear(n_heads * d_v, d_model, bias=False)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
