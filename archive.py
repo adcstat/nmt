@@ -229,3 +229,64 @@ def evaluate_beam_search(model, beam_width: int):
     return bleu_score(all_predicted_seqs, all_target_seqs)
 
 
+def train_epoch(model):
+    model.train()
+    losses = np.array([])
+
+    for batch_i, (src, tgt) in enumerate(train_dataloader):
+        batch_i += 1
+        src = src.to(DEVICE)
+        tgt = tgt.to(DEVICE)
+
+        tgt_in = tgt[:, :-1]
+        tgt_out = tgt[:, 1:]
+
+        src_padding_mask = src == PAD_IDX
+        tgt_padding_mask = tgt_in == PAD_IDX
+
+        with torch.cuda.amp.autocast():
+            logits = transformer(src, tgt_in, src_padding_mask, tgt_padding_mask)
+            loss = loss_fn(logits.reshape(-1, logits.shape[-1]), tgt_out.reshape(-1))
+
+        scaler.scale(loss).backward()
+        # Gradient Accumulation
+        if batch_i % 4 == 0:
+          # Scales loss and performs backward pass using automatic mixed precision
+          scaler.step(optimizer)
+          scaler.update()
+          optimizer.zero_grad(set_to_none=True)
+
+        losses = np.append(losses, np.array([loss.item()]))
+        if batch_i % 1000 == 0:
+            print(f"accumulated loss so far (batch {batch_i}): ", losses.sum() / batch_i)
+
+        del src
+        del tgt
+        del src_padding_mask
+        del tgt_padding_mask
+        torch.cuda.empty_cache()
+
+    return losses / train_dataloader_len
+
+@torch.no_grad()
+def evaluate(model):
+    model.eval()
+    losses = 0
+
+    for src, tgt in val_dataloader:
+        src = src.to(DEVICE)
+        tgt = tgt.to(DEVICE)
+
+        tgt_input = tgt[:, :-1]
+
+        src_padding_mask = src == PAD_IDX
+        tgt_padding_mask = tgt_input == PAD_IDX
+
+        logits = transformer(src, tgt_input, src_padding_mask, tgt_padding_mask)
+
+        tgt_out = tgt[:, 1:]
+        loss = loss_fn(logits.reshape(-1, logits.shape[-1]), tgt_out.reshape(-1))
+        losses += loss.item()
+
+    return losses / val_dataloader_len
+
