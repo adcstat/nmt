@@ -2,36 +2,6 @@ from torch import Tensor
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-import math
-
-# helper Module that adds positional encoding to the token embedding to introduce a notion of word order.
-class PositionalEncoding(nn.Module):
-    def __init__(
-        self,
-        d_model: int,
-        maxlen: int = 5000
-    ):
-        super(PositionalEncoding, self).__init__()
-        den = torch.exp(- torch.arange(0, d_model, 2) * math.log(10000) / d_model) # this equates to 1 / 10000^(2i/d_model) with 2i in torch.arange(0, d_model, 2)
-        pos = torch.arange(0, maxlen).unsqueeze(1)
-        pos_embedding = torch.zeros((maxlen, d_model))
-        pos_embedding[:, 0::2] = torch.sin(pos * den) # this is PE_(pos, 2i)
-        pos_embedding[:, 1::2] = torch.cos(pos * den) # this is PE_(pos, 2i+1)
-        self.register_buffer('pos_embedding', pos_embedding)
-
-    def forward(self, token_embedding: Tensor):
-        return token_embedding + self.pos_embedding[:token_embedding.shape[1]]
-
-# helper Module to convert tensor of input indices into corresponding tensor of token embeddings
-class TokenEmbedding(nn.Module):
-    def __init__(self, vocab_size: int, d_model):
-        super(TokenEmbedding, self).__init__()
-        self.embedding = nn.Embedding(vocab_size, d_model)
-        self.d_model = d_model
-
-    def forward(self, tokens: Tensor):
-        return self.embedding(tokens.long()) * math.sqrt(self.d_model)
-
 
 class Attention(nn.Module):
     def __init__(self, d_model, d_k, d_v, dropout, masked):
@@ -165,27 +135,26 @@ class Transformer(nn.Module):
         dropout
     ):
         super().__init__()
-        self.tok_emb = TokenEmbedding(vocab_size, d_model)
-        self.positional_encoding = PositionalEncoding(d_model)
+        self.d_model = d_model
+        self.tok_emb = nn.Embedding(vocab_size, d_model)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
         self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
-        # self.unembedding = nn.Linear(d_model, vocab_size)
 
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
-        enc = self.positional_encoding(self.tok_emb(src))
+        enc = self.tok_emb(src.long()) * self.d_model**0.5
         for layer in self.encoder:
             enc = layer(enc, src_padding_mask)
         return enc
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
-        dec = self.positional_encoding(self.tok_emb(tgt))
+        dec = self.tok_emb(tgt.long()) * self.d_model**0.5
         for layer in self.decoder:
             dec = layer(dec, enc, tgt_padding_mask, src_padding_mask)
         dec = self.ln_final(dec)
@@ -201,8 +170,7 @@ class Transformer(nn.Module):
         enc = self.encode(src, src_padding_mask)
         dec = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
 
-        # logits = self.unembedding(dec)
-        logits = dec.reshape(dec.shape[0] * dec.shape[1], -1) @ self.tok_emb.embedding.weight.data.T
+        logits = dec.reshape(dec.shape[0] * dec.shape[1], -1) @ self.tok_emb.weight.data.T
         logits = logits.reshape(dec.shape[0], dec.shape[1], -1)
 
         return logits
