@@ -148,7 +148,7 @@ class Transformer(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
-        # no need to multiply by sqrt(d_model), since it gets feed into layer norm
+        # no need to multiply by sqrt(d_model), since it gets feed into layer norm immediately
         enc = self.tok_emb(src.long())
         for layer in self.encoder:
             enc = layer(enc, src_padding_mask)
