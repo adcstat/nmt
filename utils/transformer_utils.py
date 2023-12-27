@@ -148,13 +148,14 @@ class Transformer(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
-        enc = self.tok_emb(src.long()) * self.d_model**0.5
+        # no need to multiply by sqrt(d_model), since it gets feed into layer norm
+        enc = self.tok_emb(src.long())
         for layer in self.encoder:
             enc = layer(enc, src_padding_mask)
         return enc
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
-        dec = self.tok_emb(tgt.long()) * self.d_model**0.5
+        dec = self.tok_emb(tgt.long())
         for layer in self.decoder:
             dec = layer(dec, enc, tgt_padding_mask, src_padding_mask)
         dec = self.ln_final(dec)
