@@ -7,8 +7,8 @@ class Attention(nn.Module):
     def __init__(self, d_model, d_k, d_v, dropout, masked):
         super().__init__()
         self.d_k = d_k
-        self.key = nn.Linear(d_model, d_k, bias=False)
         self.query = nn.Linear(d_model, d_k, bias=False)
+        self.key = nn.Linear(d_model, d_k, bias=False)
         self.value = nn.Linear(d_model, d_v, bias=False)
         self.masked = masked
         self.dropout = nn.Dropout(dropout)
