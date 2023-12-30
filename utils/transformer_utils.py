@@ -31,7 +31,7 @@ class Attention(nn.Module):
         if self.masked:
             mask = torch.tril(torch.ones(attention_weights.shape[1], attention_weights.shape[1], device=source_query.device))
             attention_weights = attention_weights.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
-        attention_weights = F.softmax(attention_weights, dim=-1) # (batch_size, seq_len_q, seq_len_kv)
+        attention_weights = attention_weights.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0 
         attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
         attention_weights = self.dropout(attention_weights)
