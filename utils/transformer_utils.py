@@ -1,7 +1,6 @@
 from torch import Tensor
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 
 class Attention(nn.Module):
     def __init__(self, d_model, d_k, d_v, dropout, masked):
@@ -79,8 +78,8 @@ class EncoderLayer(nn.Module):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=masked)
         self.ffwd = FeedFoward(d_model, d_ff, dropout)
-        self.ln1 = nn.LayerNorm(d_model)
-        self.ln2 = nn.LayerNorm(d_model)
+        self.ln1 = RMSNorm(d_model)
+        self.ln2 = RMSNorm(d_model)
 
     def forward(self, src, src_padding_mask):
         ln1 = self.ln1(src)
@@ -100,10 +99,10 @@ class DecoderLayer(nn.Module):
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=True)
         self.cross_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=False)
         self.ffwd = FeedFoward(d_model, d_ff, dropout)
-        self.ln1 = nn.LayerNorm(d_model)
-        self.ln2 = nn.LayerNorm(d_model)
-        self.ln3 = nn.LayerNorm(d_model)
-        self.ln4 = nn.LayerNorm(d_model)
+        self.ln1 = RMSNorm(d_model)
+        self.ln2 = RMSNorm(d_model)
+        self.ln3 = RMSNorm(d_model)
+        self.ln4 = RMSNorm(d_model)
 
     def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask):
         ln1 = self.ln1(tgt)
@@ -141,7 +140,7 @@ class Transformer(nn.Module):
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
-        self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
+        self.ln_final = RMSNorm(d_model) # final layer norm before unembedding
 
         for p in self.parameters():
             if p.dim() > 1:
@@ -175,3 +174,26 @@ class Transformer(nn.Module):
         logits = logits.reshape(dec.shape[0], dec.shape[1], -1)
 
         return logits
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, size: int, p: float = None):
+        super().__init__()
+        self.size = size
+        self.p = p
+        self.gamma = torch.nn.Parameter(torch.ones(size))
+
+    def forward(self, x):
+        if x.shape[-1] != self.size:
+            raise ValueError("Last dimension of tensor x must have same size that RMSNorm was initialized with")
+        if self.p:
+            k = int(self.p * self.size)
+            x_red = x[..., :k]
+            rms =  ((x_red**2).sum(-1)/self.size)**0.5
+        else:
+            rms = ((x**2).sum(-1)/self.size)**0.5
+        rms = rms.unsqueeze(-1)
+        return self.gamma * x / rms
+
+    def __repr__(self):
+        return f"RMSNorm(size={self.size}, p={self.p})"
