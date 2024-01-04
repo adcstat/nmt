@@ -1,6 +1,6 @@
 from torch import Tensor
 import torch
-import torch.nn as nn
+from torch import nn
 
 class Attention(nn.Module):
     def __init__(self, d_model, d_k, d_v, dropout, masked):
@@ -57,27 +57,24 @@ class MultiHeadAttention(nn.Module):
         return out
 
 
-class FeedFoward(nn.Module):
-    """ a simple linear layer followed by a non-linearity """
-
-    def __init__(self, d_model, d_ff, dropout):
+class SwiGLUFeedFoward(nn.Module):
+    def __init__(self, d_model: int, d_ff: int, dropout: float = 0.):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(d_model, d_ff),
-            nn.ReLU(),
-            nn.Linear(d_ff, d_model),
-            nn.Dropout(dropout),
-        )
+        self.W = nn.Linear(d_model, d_ff, bias=False)
+        self.swish = nn.SiLU()
+        self.V = nn.Linear(d_model, d_ff, bias=False)
+        self.W_2 = nn.Linear(d_ff, d_model, bias=False)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        return self.net(x)
+        return self.dropout(self.W_2(self.swish(self.W(x)) * self.V(x)))
 
 
 class EncoderLayer(nn.Module):
     def __init__(self, n_heads, d_model, d_ff, dropout, masked):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=masked)
-        self.ffwd = FeedFoward(d_model, d_ff, dropout)
+        self.ffwd = SwiGLUFeedFoward(d_model, d_ff, dropout)
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
 
@@ -98,7 +95,7 @@ class DecoderLayer(nn.Module):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=True)
         self.cross_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=False)
-        self.ffwd = FeedFoward(d_model, d_ff, dropout)
+        self.ffwd = SwiGLUFeedFoward(d_model, d_ff, dropout)
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
         self.ln3 = RMSNorm(d_model)
