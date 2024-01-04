@@ -12,7 +12,7 @@ class Attention(nn.Module):
         self.masked = masked
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
+    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask, prev_i, layer_ind):
         # source_query of shape (batch_size, seq_len_q, d_model)
         # source_key_value of shape (batch_size, seq_len_kv, d_model)
         # source_query_padding_mask of shape (batch_size, seq_len_q)
@@ -20,24 +20,28 @@ class Attention(nn.Module):
         q = self.query(source_query) # (batch_size, seq_len_q, d_k)
         k = self.key(source_key_value) # (batch_size, seq_len_kv, d_k)
         # compute attention scores ("affinities")
-        attention_weights = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len_q, d_k) @ (batch_size, d_k, seq_len_kv) -> (batch_size, seq_len_q, seq_len_kv)
+        attention_weights_raw = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len_q, d_k) @ (batch_size, d_k, seq_len_kv) -> (batch_size, seq_len_q, seq_len_kv)
         # padding mask
         stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(dim=1).repeat(1, source_key_value.shape[1], 1).transpose(-2, -1)
-        attention_weights = attention_weights.masked_fill(stretched_source_query_padding_mask, float('-inf'))
+        attention_weights_raw = attention_weights_raw.masked_fill(stretched_source_query_padding_mask, float('-inf'))
         stretched_source_key_value_padding_mask = source_key_value_padding_mask.unsqueeze(dim=1).repeat(1, source_query.shape[1], 1)
-        attention_weights = attention_weights.masked_fill(stretched_source_key_value_padding_mask, float('-inf'))
+        attention_weights_raw = attention_weights_raw.masked_fill(stretched_source_key_value_padding_mask, float('-inf'))
         # autoregressive masking only makes sense for source_query == source_key_value
         if self.masked:
-            mask = torch.tril(torch.ones(attention_weights.shape[1], attention_weights.shape[1], device=source_query.device))
-            attention_weights = attention_weights.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
-        attention_weights = attention_weights.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
+            mask = torch.tril(torch.ones(attention_weights_raw.shape[1], attention_weights_raw.shape[1], device=source_query.device))
+            attention_weights_raw = attention_weights_raw.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
+        # Realformer residual connections using exp weighted avg with beta=0.5
+        attention_weights_raw = (attention_weights_raw + prev_i) / 2
+        # bias correction
+        attention_weights_cor = attention_weights_raw / (1-0.5**layer_ind)
+        attention_weights = attention_weights_cor.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0 
         attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
         attention_weights = self.dropout(attention_weights)
         # perform the weighted aggregation of the values
         v = self.value(source_key_value) # (batch_size, seq_len_kv, d_v)
-        out = attention_weights @ v # (batch_size, seq_len_q, seq_len_kv) @ (batch_size, seq_len_kv, d_v) -> (batch_size, seq_len_q, d_v)
-        return out
+        attention = attention_weights @ v # (batch_size, seq_len_q, seq_len_kv) @ (batch_size, seq_len_kv, d_v) -> (batch_size, seq_len_q, d_v)
+        return attention, attention_weights_raw
 
 
 class MultiHeadAttention(nn.Module):
@@ -51,10 +55,12 @@ class MultiHeadAttention(nn.Module):
         self.proj = nn.Linear(n_heads * d_v, d_model, bias=False)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
-        out = torch.cat([h(source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask) for h in self.heads], dim=-1) # (batch_size, seq_len_q, n_heads*d_v)
-        out = self.dropout(self.proj(out)) # (batch_size, seq_len_q, d_model)
-        return out
+    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask, prev, layer_ind):
+        att_outs = [h(source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask, prev[i], layer_ind) for i, h in enumerate(self.heads)]
+        attention = torch.cat([out[0] for out in att_outs], dim=-1) # (batch_size, seq_len_q, n_heads*d_v)
+        attention = self.dropout(self.proj(attention)) # (batch_size, seq_len_q, d_model)
+        attention_weights_raw = [out[1] for out in att_outs]
+        return attention, attention_weights_raw
 
 
 class SwiGLUFeedFoward(nn.Module):
@@ -78,16 +84,18 @@ class EncoderLayer(nn.Module):
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
 
-    def forward(self, src, src_padding_mask):
-        ln1 = self.ln1(src)
-        sa = src + self.self_attention(
-            source_query=ln1,
-            source_key_value=ln1,
+    def forward(self, src, src_padding_mask, prev, layer_ind):
+        attention, attention_weights_raw = self.self_attention(
+            source_query=src,
+            source_key_value=src,
             source_query_padding_mask=src_padding_mask,
-            source_key_value_padding_mask=src_padding_mask
+            source_key_value_padding_mask=src_padding_mask,
+            prev=prev,
+            layer_ind=layer_ind
         )
-        out = sa + self.ffwd(self.ln2(sa))
-        return out
+        sa_norm = self.ln1(src + attention)
+        out = self.ln2(sa_norm + self.ffwd(sa_norm))
+        return out, attention_weights_raw
 
 
 class DecoderLayer(nn.Module):
@@ -99,24 +107,28 @@ class DecoderLayer(nn.Module):
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
         self.ln3 = RMSNorm(d_model)
-        self.ln4 = RMSNorm(d_model)
 
-    def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask):
-        ln1 = self.ln1(tgt)
-        sa = tgt + self.self_attention(
-            source_query=ln1,
-            source_key_value=ln1,
+    def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask, prev_sa, prev_ca, layer_ind):
+        sa, sa_weights_raw = self.self_attention(
+            source_query=tgt,
+            source_key_value=tgt,
             source_query_padding_mask=tgt_padding_mask,
-            source_key_value_padding_mask=tgt_padding_mask
+            source_key_value_padding_mask=tgt_padding_mask,
+            prev=prev_sa,
+            layer_ind=layer_ind
         )
-        ca = sa + self.cross_attention(
-            source_query=self.ln2(sa),
-            source_key_value=self.ln3(memory),
+        sa_norm = self.ln1(sa + tgt)
+        ca, ca_weights_norm = self.cross_attention(
+            source_query=sa_norm,
+            source_key_value=memory,
             source_query_padding_mask=tgt_padding_mask,
-            source_key_value_padding_mask=memory_padding_mask
+            source_key_value_padding_mask=memory_padding_mask,
+            prev=prev_ca,
+            layer_ind=layer_ind
         )
-        out = ca + self.ffwd(self.ln4(ca))
-        return out
+        ca_norm = self.ln2(ca + sa_norm)
+        out = self.ln3(ca_norm + self.ffwd(ca_norm))
+        return out, sa_weights_raw, ca_weights_norm
 
 
 class Transformer(nn.Module):
@@ -132,12 +144,11 @@ class Transformer(nn.Module):
     ):
         super().__init__()
         self.d_model = d_model
+        self.n_heads = n_heads
         self.tok_emb = nn.Embedding(vocab_size, d_model)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
-
-        self.ln_final = RMSNorm(d_model) # final layer norm before unembedding
 
         for p in self.parameters():
             if p.dim() > 1:
@@ -146,15 +157,17 @@ class Transformer(nn.Module):
     def encode(self, src: Tensor, src_padding_mask: Tensor):
         # no need to multiply by sqrt(d_model), since it gets feed into layer norm immediately
         enc = self.tok_emb(src.long())
-        for layer in self.encoder:
-            enc = layer(enc, src_padding_mask)
+        prev = [torch.zeros(src.shape[0], src.shape[1], src.shape[1], device=src.device)] * self.n_heads
+        for layer_ind, layer in enumerate(self.encoder):
+            enc, prev = layer(enc, src_padding_mask, prev, layer_ind+1)
         return enc
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
         dec = self.tok_emb(tgt.long())
-        for layer in self.decoder:
-            dec = layer(dec, enc, tgt_padding_mask, src_padding_mask)
-        dec = self.ln_final(dec)
+        prev_sa = [torch.zeros(tgt.shape[0], tgt.shape[1], tgt.shape[1], device=tgt.device)] * self.n_heads
+        prev_ca = [torch.zeros(tgt.shape[0], tgt.shape[1], enc.shape[1], device=tgt.device)] * self.n_heads
+        for layer_ind, layer in enumerate(self.decoder):
+            dec, prev_sa, prev_ca = layer(dec, enc, tgt_padding_mask, src_padding_mask, prev_sa, prev_ca, layer_ind+1)
         return dec
 
     def forward(
