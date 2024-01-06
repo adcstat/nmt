@@ -1,6 +1,25 @@
 from torch import Tensor
 import torch
 from torch import nn
+import math
+
+class PositionalEncoding(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        maxlen: int = 5000
+    ):
+        super().__init__()
+        den = torch.exp(- torch.arange(0, d_model, 2) * math.log(10000) / d_model) # this equates to 1 / 10000^(2i/d_model) with 2i in torch.arange(0, d_model, 2)
+        pos = torch.arange(0, maxlen).unsqueeze(1)
+        pos_embedding = torch.zeros((maxlen, d_model))
+        pos_embedding[:, 0::2] = torch.sin(pos * den) # this is PE_(pos, 2i)
+        pos_embedding[:, 1::2] = torch.cos(pos * den) # this is PE_(pos, 2i+1)
+        self.register_buffer('pos_embedding', pos_embedding)
+
+    def forward(self, token_embedding: Tensor):
+        return token_embedding + self.pos_embedding[:token_embedding.shape[1]]
+
 
 class Attention(nn.Module):
     def __init__(self, d_model, d_k, d_v, dropout, masked):
@@ -146,6 +165,7 @@ class Transformer(nn.Module):
         self.d_model = d_model
         self.n_heads = n_heads
         self.tok_emb = nn.Embedding(vocab_size, d_model)
+        self.positional_encoding = PositionalEncoding(d_model)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
@@ -155,15 +175,14 @@ class Transformer(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
-        # no need to multiply by sqrt(d_model), since it gets feed into layer norm immediately
-        enc = self.tok_emb(src.long())
+        enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
         prev = [torch.zeros(src.shape[0], src.shape[1], src.shape[1], device=src.device)] * self.n_heads
         for layer_ind, layer in enumerate(self.encoder):
             enc, prev = layer(enc, src_padding_mask, prev, layer_ind+1)
         return enc
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
-        dec = self.tok_emb(tgt.long())
+        dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
         prev_sa = [torch.zeros(tgt.shape[0], tgt.shape[1], tgt.shape[1], device=tgt.device)] * self.n_heads
         prev_ca = [torch.zeros(tgt.shape[0], tgt.shape[1], enc.shape[1], device=tgt.device)] * self.n_heads
         for layer_ind, layer in enumerate(self.decoder):
