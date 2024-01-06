@@ -20,9 +20,9 @@ def beam_search(
     tgt_padding_mask = Y == pad_symbol
     enc = model.encode(X, src_padding_mask)
     # get decoding for last last token in Y
-    dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)[:, -1, :] # (batch_size, d_model)
+    dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)[:, -1:, :] # (batch_size, 1, d_model)
     # get logits for next predicted token
-    logits = model.unembedding(dec) # (batch_size, tgt_vocab_size)
+    logits = model.unembedding(dec).squeeze(1) # (batch_size, tgt_vocab_size)
     vocabulary_size = logits.shape[-1]
     # search for highest beam_width probabilites within each batch
     next_probabilities, next_tokens = logits.log_softmax(-1).topk(k = beam_width, axis = -1) # (batch_size, beam_width)
@@ -35,8 +35,8 @@ def beam_search(
     enc = model.encode(X, src_padding_mask) # (batch_size*beam_width, src_seq_len, d_model)
     for _ in range(max_len - 1):
         tgt_padding_mask = Y == pad_symbol
-        dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)[:, -1, :] # (batch_size*beam_width, d_model)
-        next_logits = model.unembedding(dec) # (batch_size*beam_width, tgt_vocab_size)
+        dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)[:, -1:, :] # (batch_size*beam_width, 1, d_model)
+        next_logits = model.unembedding(dec).squeeze(1) # (batch_size*beam_width, tgt_vocab_size)
         # adding log probs instead multiplying probs
         next_probabilities += next_logits.log_softmax(-1)
         # search for highest beam_width probabilites within each batch

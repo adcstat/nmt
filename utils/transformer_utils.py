@@ -170,6 +170,11 @@ class Transformer(nn.Module):
             dec, prev_sa, prev_ca = layer(dec, enc, tgt_padding_mask, src_padding_mask, prev_sa, prev_ca, layer_ind+1)
         return dec
 
+    def unembedding(self, dec: Tensor):
+        logits = dec.reshape(dec.shape[0] * dec.shape[1], -1) @ self.tok_emb.weight.data.T
+        logits = logits.reshape(dec.shape[0], dec.shape[1], -1)
+        return logits
+
     def forward(
         self,
         src: Tensor,
@@ -179,9 +184,7 @@ class Transformer(nn.Module):
     ):
         enc = self.encode(src, src_padding_mask)
         dec = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
-
-        logits = dec.reshape(dec.shape[0] * dec.shape[1], -1) @ self.tok_emb.weight.data.T
-        logits = logits.reshape(dec.shape[0], dec.shape[1], -1)
+        logits = self.unembedding(dec)
 
         return logits
 
