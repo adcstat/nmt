@@ -126,7 +126,8 @@ def translate(
     start_symbol,
     pad_symbol,
     end_symbol,
-    device
+    device,
+    max_len
 ):
     src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
     src = src.to(device)
@@ -138,7 +139,7 @@ def translate(
         pad_symbol=pad_symbol,
         end_symbol=end_symbol,
         device=device,
-        max_len=src.shape[1] + 5,
+        max_len=max_len,
         only_best=True
     )[0]
     return tokenizer.decode(tgt_tokens.tolist())
