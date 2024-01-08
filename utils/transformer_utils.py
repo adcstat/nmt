@@ -104,16 +104,17 @@ class EncoderLayer(nn.Module):
         self.ln2 = RMSNorm(d_model)
 
     def forward(self, src, src_padding_mask, prev, layer_ind):
+        ln1 = self.ln1(src)
         attention, attention_weights_raw = self.self_attention(
-            source_query=src,
-            source_key_value=src,
+            source_query=ln1,
+            source_key_value=ln1,
             source_query_padding_mask=src_padding_mask,
             source_key_value_padding_mask=src_padding_mask,
             prev=prev,
             layer_ind=layer_ind
         )
-        sa_norm = self.ln1(src + attention)
-        out = self.ln2(sa_norm + self.ffwd(sa_norm))
+        attention += src
+        out = attention + self.ffwd(self.ln2(attention))
         return out, attention_weights_raw
 
 
@@ -126,28 +127,30 @@ class DecoderLayer(nn.Module):
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
         self.ln3 = RMSNorm(d_model)
+        self.ln4 = RMSNorm(d_model)
 
     def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask, prev_sa, prev_ca, layer_ind):
+        ln1 = self.ln1(tgt)
         sa, sa_weights_raw = self.self_attention(
-            source_query=tgt,
-            source_key_value=tgt,
+            source_query=ln1,
+            source_key_value=ln1,
             source_query_padding_mask=tgt_padding_mask,
             source_key_value_padding_mask=tgt_padding_mask,
             prev=prev_sa,
             layer_ind=layer_ind
         )
-        sa_norm = self.ln1(sa + tgt)
-        ca, ca_weights_norm = self.cross_attention(
-            source_query=sa_norm,
-            source_key_value=memory,
+        sa += tgt
+        ca, ca_weights_raw = self.cross_attention(
+            source_query=self.ln2(sa),
+            source_key_value=self.ln3(memory),
             source_query_padding_mask=tgt_padding_mask,
             source_key_value_padding_mask=memory_padding_mask,
             prev=prev_ca,
             layer_ind=layer_ind
         )
-        ca_norm = self.ln2(ca + sa_norm)
-        out = self.ln3(ca_norm + self.ffwd(ca_norm))
-        return out, sa_weights_raw, ca_weights_norm
+        ca += sa
+        out = ca + self.ffwd(self.ln4(ca))
+        return out, sa_weights_raw, ca_weights_raw
 
 
 class Transformer(nn.Module):
@@ -170,6 +173,9 @@ class Transformer(nn.Module):
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
+        self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
+        self.unembedding = nn.Linear(d_model, vocab_size)
+
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
@@ -187,12 +193,8 @@ class Transformer(nn.Module):
         prev_ca = [torch.zeros(tgt.shape[0], tgt.shape[1], enc.shape[1], device=tgt.device)] * self.n_heads
         for layer_ind, layer in enumerate(self.decoder):
             dec, prev_sa, prev_ca = layer(dec, enc, tgt_padding_mask, src_padding_mask, prev_sa, prev_ca, layer_ind+1)
+        dec = self.ln_final(dec)
         return dec
-
-    def unembedding(self, dec: Tensor):
-        logits = dec.reshape(dec.shape[0] * dec.shape[1], -1) @ self.tok_emb.weight.data.T
-        logits = logits.reshape(dec.shape[0], dec.shape[1], -1)
-        return logits
 
     def forward(
         self,
