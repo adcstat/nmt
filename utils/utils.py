@@ -1,4 +1,6 @@
 import torch
+from torchmetrics.functional.text import sacre_bleu_score
+
 
 @torch.no_grad()
 def beam_search(
@@ -82,3 +84,76 @@ def beam_search(
         # return first beam of every batch (thats the one with highest probability)
         return Y[:, 0, :]
     return Y, probabilities
+
+
+def evaluate_beam_search(tokenizer, model: torch.nn.Module, beam_width: int, test_dataloader, start_symbol, pad_symbol, end_symbol, device):
+    model.eval()
+
+    for src, tgt in test_dataloader:
+        src = src.to(device)
+        tgt = tokenizer.decode_batch(tgt.tolist())
+
+        predicted_seqs = beam_search(
+            model=model,
+            X=src,
+            start_symbol=start_symbol,
+            pad_symbol=pad_symbol,
+            end_symbol=end_symbol,
+            device=device,
+            max_len=src.shape[1] + 5,
+            beam_width=beam_width,
+            only_best=True
+        )
+        predicted_seqs = tokenizer.decode_batch(predicted_seqs.tolist())
+
+    return sacre_bleu_score(predicted_seqs, tgt)
+
+
+def translate(tokenizer, model: torch.nn.Module, src_sentence: str, beam_width: int, start_symbol, pad_symbol, end_symbol, device):
+    src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
+    src = src.to(device)
+    tgt_tokens = beam_search(
+        model=model,
+        X=src,
+        start_symbol=start_symbol,
+        pad_symbol=pad_symbol,
+        end_symbol=end_symbol,
+        device=device,
+        max_len=src.shape[1] + 5,
+        beam_width=beam_width,
+        only_best=True
+    )[0]
+    return tokenizer.decode(tgt_tokens.tolist())
+
+def greedy_decode(model, src, max_len, start_symbol, pad_symbol, end_symbol, device):
+    src = src.to(device)
+    src_padding_mask = src == pad_symbol
+    memory = model.encode(src, src_padding_mask)
+    memory = memory.to(device)
+    ys = torch.ones(1, 1).fill_(start_symbol).type(torch.long).to(device)
+    tgt_padding_mask = ys == pad_symbol
+    for _ in range(max_len-1):
+        out = model.decode(ys, memory, tgt_padding_mask, src_padding_mask)
+        prob = model.unembedding(out[:, -1:, :])
+        _, next_word = torch.max(prob, dim=-1)
+        next_word = next_word.item()
+
+        ys = torch.cat([ys, torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=1)
+        tgt_padding_mask = ys == pad_symbol
+        if next_word == end_symbol:
+            break
+    return ys
+
+def translate_greedy(tokenizer, model: torch.nn.Module, src_sentence: str, start_symbol, pad_symbol, end_symbol):
+    model.eval()
+    src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
+    num_tokens = src.shape[1]
+    tgt_tokens = greedy_decode(
+        model=model,
+        src=src,
+        max_len=num_tokens + 5,
+        start_symbol=start_symbol,
+        pad_symbol=pad_symbol,
+        end_symbol=end_symbol
+    ).flatten()
+    return tokenizer.decode(tgt_tokens.tolist())
