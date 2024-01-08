@@ -6,12 +6,12 @@ from torchmetrics.functional.text import sacre_bleu_score
 def beam_search(
     model,
     X,
+    beam_width,
     start_symbol,
     pad_symbol,
     end_symbol,
     device,
     max_len = 20,
-    beam_width = 5,
     only_best: bool = False,
     length_norm_exp: float = 0.6
 ):
@@ -86,7 +86,16 @@ def beam_search(
     return Y, probabilities
 
 
-def evaluate_beam_search(tokenizer, model: torch.nn.Module, beam_width: int, test_dataloader, start_symbol, pad_symbol, end_symbol, device):
+def evaluate_beam_search(
+    tokenizer,
+    model: torch.nn.Module,
+    test_dataloader,
+    beam_width: int,
+    start_symbol,
+    pad_symbol,
+    end_symbol,
+    device
+):
     model.eval()
 
     for src, tgt in test_dataloader:
@@ -96,12 +105,12 @@ def evaluate_beam_search(tokenizer, model: torch.nn.Module, beam_width: int, tes
         predicted_seqs = beam_search(
             model=model,
             X=src,
+            beam_width=beam_width,
             start_symbol=start_symbol,
             pad_symbol=pad_symbol,
             end_symbol=end_symbol,
             device=device,
             max_len=src.shape[1] + 5,
-            beam_width=beam_width,
             only_best=True
         )
         predicted_seqs = tokenizer.decode_batch(predicted_seqs.tolist())
@@ -109,18 +118,27 @@ def evaluate_beam_search(tokenizer, model: torch.nn.Module, beam_width: int, tes
     return sacre_bleu_score(predicted_seqs, tgt)
 
 
-def translate(tokenizer, model: torch.nn.Module, src_sentence: str, beam_width: int, start_symbol, pad_symbol, end_symbol, device):
+def translate(
+    tokenizer,
+    model: torch.nn.Module,
+    src_sentence: str,
+    beam_width: int,
+    start_symbol,
+    pad_symbol,
+    end_symbol,
+    device
+):
     src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
     src = src.to(device)
     tgt_tokens = beam_search(
         model=model,
         X=src,
+        beam_width=beam_width,
         start_symbol=start_symbol,
         pad_symbol=pad_symbol,
         end_symbol=end_symbol,
         device=device,
         max_len=src.shape[1] + 5,
-        beam_width=beam_width,
         only_best=True
     )[0]
     return tokenizer.decode(tgt_tokens.tolist())
