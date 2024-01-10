@@ -23,28 +23,28 @@ def get_dataloader(dataset: Dataset):
     )
 
 class WMT14train(Dataset):
-    def __init__(self, max_tokens):
-        self.data = batch_data_fn(wmt14["train"], max_tokens)
+    def __init__(self, tokens_per_batch):
+        self.data = batch_data_fn(wmt14["train"], tokens_per_batch)
     def __len__(self):
         return self.size
     def __getitem__(self, index):
         return self.data[index]
 
 class WMT14val(Dataset):
-    def __init__(self, max_tokens):
-        self.data = batch_data_fn(wmt14["validation"], max_tokens)
+    def __init__(self, tokens_per_batch):
+        self.data = batch_data_fn(wmt14["validation"], tokens_per_batch)
     def __len__(self):
         return self.size
     def __getitem__(self, index):
         return self.data[index]
 
 # function to batch data into batches of certain token size
-def batch_data_fn(data, max_tokens):
+def batch_data_fn(data, tokens_per_batch):
     batched_data = []
     batch = []
     batch_length = 0
     for src, tgt, length in data:
-        if batch_length + length <= max_tokens:
+        if batch_length + length <= tokens_per_batch:
             batch.append([src, tgt])
             batch_length += length
         else:

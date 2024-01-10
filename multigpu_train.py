@@ -16,6 +16,7 @@ with open("params_test.json", "r") as fp:
 
 PAD_IDX = params("PAD_IDX")
 vocab_size = params("vocab_size")
+tokens_per_batch = params("tokens_per_batch")
 epochs = params("epochs")
 grad_accumulation = params("grad_accumulation")
 d_model = params("d_model")
@@ -163,8 +164,8 @@ class Trainer:
 
 def main():
     ddp_setup()
-    train_data = get_dataloader(WMT14train())
-    val_data = get_dataloader(WMT14val())
+    train_data = get_dataloader(WMT14train(tokens_per_batch))
+    val_data = get_dataloader(WMT14val(tokens_per_batch))
     model = tfu.Transformer(
         vocab_size=vocab_size,
         d_model=d_model,

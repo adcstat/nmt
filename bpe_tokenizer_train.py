@@ -17,7 +17,7 @@ EOS_IDX = params("EOS_IDX")
 PAD_IDX = params("PAD_IDX")
 special_tokens = params("special_tokens")
 vocab_size = params("vocab_size")
-max_length = params("vocab_size")
+max_length = params("max_length")
 
 
 def load_data():

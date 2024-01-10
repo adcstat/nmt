@@ -5,6 +5,7 @@
     "special_tokens": ["<bos>", "<eos>", "<pad>"],
     "vocab_size": 20000,
     "max_length": 100,
+    "tokens_per_batch": 5000,
     "epochs": 15,
     "grad_accumulation": 16,
     "d_model": 512,
