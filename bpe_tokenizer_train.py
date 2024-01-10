@@ -47,7 +47,7 @@ def initialize_tokenizer():
 def train_tokenizer(tokenizer, text_list):
     trainer = BpeTrainer(vocab_size=vocab_size, min_frequency=2, special_tokens=special_tokens, show_progress=True)
     tokenizer.train_from_iterator(text_list, trainer)
-    tokenizer.save("drive/MyDrive/nmt/bpe_tokenizer.json")
+    tokenizer.save("bpe_tokenizer.json")
 
 def process_data(tokenizer, data):
     processed_data = {}

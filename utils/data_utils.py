@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader, DistributedSampler
 with open("../wmt14.json", "r") as fp:
     wmt14 = json.load(fp)
 
-tokenizer = Tokenizer.from_file("drive/MyDrive/nmt/bpe_tokenizer.json")
+tokenizer = Tokenizer.from_file("bpe_tokenizer.json")
 
 def get_dataloader(dataset: Dataset):
     return DataLoader(
