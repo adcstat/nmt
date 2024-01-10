@@ -1,5 +1,6 @@
 .vscode
 .venv
+temp/
 test.ipynb
 bpe_tokenizer.json
 wmt14.json
