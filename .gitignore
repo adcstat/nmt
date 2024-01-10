@@ -1,5 +1,6 @@
 .vscode
 .venv
+__pycache__
 temp/
 test.ipynb
 bpe_tokenizer.json
