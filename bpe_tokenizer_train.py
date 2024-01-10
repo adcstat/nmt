@@ -8,10 +8,16 @@ from tokenizers.pre_tokenizers import ByteLevel as bl_pre
 from tokenizers.processors import ByteLevel as bl_post, Sequence, TemplateProcessing
 from tokenizers.decoders import ByteLevel as bl_dec
 
-# Define special symbols and indices
-BOS_IDX, EOS_IDX, PAD_IDX = 0, 1, 2
-# Make sure the tokens are in order of their indices
-special_tokens = ['<bos>', '<eos>', '<pad>']
+
+with open("params.json", "r") as fp:
+    params = json.load(fp)
+
+BOS_IDX = params("BOS_IDX")
+EOS_IDX = params("EOS_IDX")
+PAD_IDX = params("PAD_IDX")
+special_tokens = params("special_tokens")
+vocab_size = params("vocab_size")
+max_length = params("vocab_size")
 
 
 def load_data():
@@ -39,11 +45,11 @@ def initialize_tokenizer():
     return tokenizer
 
 def train_tokenizer(tokenizer, text_list):
-    trainer = BpeTrainer(vocab_size=20000, min_frequency=2, special_tokens=special_tokens, show_progress=True)
+    trainer = BpeTrainer(vocab_size=vocab_size, min_frequency=2, special_tokens=special_tokens, show_progress=True)
     tokenizer.train_from_iterator(text_list, trainer)
     tokenizer.save("drive/MyDrive/nmt/bpe_tokenizer.json")
 
-def process_data(tokenizer, data, max_length):
+def process_data(tokenizer, data):
     processed_data = {}
     for split in ["train", "validation"]:
         # calculate token count
@@ -61,7 +67,7 @@ def main():
     train_text_list = flatten_data(data["train"])
     tokenizer = initialize_tokenizer()
     train_tokenizer(tokenizer, train_text_list)
-    processed_data = process_data(tokenizer, data, 100)
+    processed_data = process_data(tokenizer, data)
     data.update(processed_data)
     with open("wmt14.json", "w") as fp:
         json.dump(data, fp)
