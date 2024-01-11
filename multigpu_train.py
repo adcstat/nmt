@@ -49,9 +49,9 @@ class Trainer:
         self.schedule = self.get_schedule()
         self.epochs_run = 0
         self.snapshot_path = "checkpoints/snapshot.tar"
-        # if os.path.exists(self.snapshot_path):
-        #     print("Loading snapshot")
-        #     self._load_snapshot(self.snapshot_path)
+        if os.path.exists(self.snapshot_path):
+            print("Loading snapshot")
+            self._load_snapshot(self.snapshot_path)
 
         self.model = DDP(self.model, device_ids=[self.gpu_id])
 
@@ -149,8 +149,8 @@ class Trainer:
             start_time = timer()
             train_losses = self._run_epoch(epoch)
             duration = timer() - start_time
-            print(f"[GPU{self.gpu_id}] epoch duration: {duration}")
             val_loss = self._evaluate()
+            print(f"[GPU{self.gpu_id}] epoch duration: {duration} | val_loss: {val_loss}")
             all_train_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
             all_val_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
             dist.gather_object(train_losses, all_train_losses, dst=0)
