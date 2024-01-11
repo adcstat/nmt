@@ -11,7 +11,7 @@ import torch.distributed as dist
 from utils.data_utils import get_dataloader, WMT14train, WMT14val
 from utils import transformer_utils as tfu
 
-with open("params_test.json", "r") as fp:
+with open("params.json", "r") as fp:
     params = json.load(fp)
 
 PAD_IDX = params["PAD_IDX"]
@@ -48,10 +48,10 @@ class Trainer:
         self.scaler = torch.cuda.amp.GradScaler()
         self.schedule = self.get_schedule()
         self.epochs_run = 0
-        self.snapshot_path = "snapshot.tar"
-        if os.path.exists(self.snapshot_path):
-            print("Loading snapshot")
-            self._load_snapshot(self.snapshot_path)
+        self.snapshot_path = "checkpoints/snapshot.tar"
+        # if os.path.exists(self.snapshot_path):
+        #     print("Loading snapshot")
+        #     self._load_snapshot(self.snapshot_path)
 
         self.model = DDP(self.model, device_ids=[self.gpu_id])
 
@@ -67,7 +67,7 @@ class Trainer:
         # save snapshot for reloading
         torch.save(snapshot, self.snapshot_path)
         # save snapshot fpr checkpoint averaging
-        torch.save(snapshot, f"checkpoint_{epoch}.tar")
+        torch.save(snapshot, f"checkpoints/checkpoint_{epoch}.tar")
         print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
 
     def _load_snapshot(self, snapshot_path):
@@ -88,9 +88,6 @@ class Trainer:
         return schedule
 
     def _run_epoch(self, epoch):
-        src, tgt = next(iter(self.train_data))
-        print(f"[GPU{self.gpu_id}] Epoch {epoch} Steps: {len(self.train_data)} \n data: {src}")
-
         self.model.train()
         losses = np.array([])
         self.train_data.sampler.set_epoch(epoch)
@@ -154,8 +151,8 @@ class Trainer:
             duration = timer() - start_time
             print(f"[GPU{self.gpu_id}] epoch duration: {duration}")
             val_loss = self._evaluate()
-            all_train_losses = [None for _ in self.world_size] if self.gpu_id == 0 else None
-            all_val_losses = [None for _ in self.world_size] if self.gpu_id == 0 else None
+            all_train_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
+            all_val_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
             dist.gather_object(train_losses, all_train_losses, dst=0)
             dist.gather_object(val_loss, all_val_losses, dst=0)
             if self.gpu_id == 0:
@@ -165,7 +162,7 @@ class Trainer:
 def main():
     ddp_setup()
     # easily fits into memory
-    with open("../wmt14.json", "r") as fp:
+    with open("wmt14.json", "r") as fp:
         wmt14 = json.load(fp)
     train_data = get_dataloader(WMT14train(wmt14, tokens_per_batch))
     val_data = get_dataloader(WMT14val(wmt14, tokens_per_batch))

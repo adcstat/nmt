@@ -23,7 +23,8 @@ def get_dataloader(dataset: Dataset):
 
 class WMT14train(Dataset):
     def __init__(self, wmt14, tokens_per_batch):
-        self.data = batch_data_fn(wmt14["train"][:100], tokens_per_batch)
+        self.data = batch_data_fn(wmt14["train"], tokens_per_batch)
+        self.size = len(self.data)
     def __len__(self):
         return self.size
     def __getitem__(self, index):
@@ -31,7 +32,8 @@ class WMT14train(Dataset):
 
 class WMT14val(Dataset):
     def __init__(self, wmt14, tokens_per_batch):
-        self.data = batch_data_fn(wmt14["validation"][:100], tokens_per_batch)
+        self.data = batch_data_fn(wmt14["validation"], tokens_per_batch)
+        self.size = len(self.data)
     def __len__(self):
         return self.size
     def __getitem__(self, index):
@@ -50,6 +52,8 @@ def batch_data_fn(data, tokens_per_batch):
             batched_data.append(batch)
             batch = []
             batch_length = 0
+            batch.append([src, tgt])
+            batch_length += length
     return batched_data
 
 # function to collate data samples into batch tensors
