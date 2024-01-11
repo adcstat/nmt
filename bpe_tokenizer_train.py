@@ -12,12 +12,12 @@ from tokenizers.decoders import ByteLevel as bl_dec
 with open("params.json", "r") as fp:
     params = json.load(fp)
 
-BOS_IDX = params("BOS_IDX")
-EOS_IDX = params("EOS_IDX")
-PAD_IDX = params("PAD_IDX")
-special_tokens = params("special_tokens")
-vocab_size = params("vocab_size")
-max_length = params("max_length")
+BOS_IDX = params["BOS_IDX"]
+EOS_IDX = params["EOS_IDX"]
+PAD_IDX = params["PAD_IDX"]
+special_tokens = params["special_tokens"]
+vocab_size = params["vocab_size"]
+max_length = params["max_length"]
 
 
 def load_data():

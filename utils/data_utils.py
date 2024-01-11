@@ -6,9 +6,8 @@ from tokenizers import Tokenizer
 import torch
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
 
-# easily fits into memory
-with open("../wmt14.json", "r") as fp:
-    wmt14 = json.load(fp)
+import sys
+sys.path.append("..")
 
 tokenizer = Tokenizer.from_file("bpe_tokenizer.json")
 
@@ -23,16 +22,16 @@ def get_dataloader(dataset: Dataset):
     )
 
 class WMT14train(Dataset):
-    def __init__(self, tokens_per_batch):
-        self.data = batch_data_fn(wmt14["train"], tokens_per_batch)
+    def __init__(self, wmt14, tokens_per_batch):
+        self.data = batch_data_fn(wmt14["train"][:100], tokens_per_batch)
     def __len__(self):
         return self.size
     def __getitem__(self, index):
         return self.data[index]
 
 class WMT14val(Dataset):
-    def __init__(self, tokens_per_batch):
-        self.data = batch_data_fn(wmt14["validation"], tokens_per_batch)
+    def __init__(self, wmt14, tokens_per_batch):
+        self.data = batch_data_fn(wmt14["validation"][:100], tokens_per_batch)
     def __len__(self):
         return self.size
     def __getitem__(self, index):
