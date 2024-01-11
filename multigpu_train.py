@@ -8,8 +8,11 @@ from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
+from tokenizers import Tokenizer
+
 from utils.data_utils import get_dataloader, WMT14train, WMT14val
 from utils import transformer_utils as tfu
+from utils.utils import translate_greedy
 
 with open("params.json", "r") as fp:
     params = json.load(fp)
@@ -28,6 +31,7 @@ d_ff = params["d_ff"]
 n_layers = params["n_layers"]
 dropout = params["dropout"]
 
+tokenizer = Tokenizer.from_file("bpe_tokenizer.json")
 
 def ddp_setup():
     dist.init_process_group(backend="nccl")
@@ -147,6 +151,18 @@ class Trainer:
 
         return losses / self.val_data_len
 
+    def _test_translate(self):
+        if self.gpu_id == 0:
+            self.model.eval()
+            test_sentences = [
+                "Das Auto steht auf dem Berg.",
+                "Was kostet der Fisch?",
+                "Zwei Zebras laufen hintereinander."
+            ]
+            for sentence in test_sentences:
+                translation = translate_greedy(tokenizer, self.model, sentence, self.gpu_id)
+                print(f"src: {sentence} \ntranslation: {translation}")
+
     def train(self):
         for epoch in range(self.epochs_run, epochs):
             start_time = timer()
@@ -154,6 +170,7 @@ class Trainer:
             duration = timer() - start_time
             val_loss = self._evaluate()
             print(f"[GPU{self.gpu_id}] epoch duration: {duration} | val_loss: {val_loss}")
+            self._test_translate()
             all_train_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
             all_val_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
             dist.gather_object(train_losses, all_train_losses, dst=0)

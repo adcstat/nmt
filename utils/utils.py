@@ -156,13 +156,14 @@ def greedy_decode(model, src, max_len, device):
             break
     return ys
 
-def translate_greedy(tokenizer, model: torch.nn.Module, src_sentence: str):
+def translate_greedy(tokenizer, model: torch.nn.Module, src_sentence: str, device):
     model.eval()
     src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
     num_tokens = src.shape[1]
     tgt_tokens = greedy_decode(
         model=model,
         src=src,
-        max_len=num_tokens + 5
+        max_len=num_tokens + 5,
+        device=device
     ).flatten()
     return tokenizer.decode(tgt_tokens.tolist())
