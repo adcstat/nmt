@@ -14,6 +14,9 @@ from utils import transformer_utils as tfu
 with open("params.json", "r") as fp:
     params = json.load(fp)
 
+with open("checkpoints/params.json", "w") as fp:
+    json.dump(params, fp)
+
 PAD_IDX = params["PAD_IDX"]
 vocab_size = params["vocab_size"]
 tokens_per_batch = params["tokens_per_batch"]
