@@ -1,5 +1,13 @@
+import json
 import torch
 from torchmetrics.functional.text import sacre_bleu_score
+
+with open("params.json", "r") as fp:
+    params = json.load(fp)
+
+BOS_IDX = params["BOS_IDX"]
+EOS_IDX = params["EOS_IDX"]
+PAD_IDX = params["PAD_IDX"]
 
 
 @torch.no_grad()
@@ -7,9 +15,6 @@ def beam_search(
     model,
     X,
     beam_width,
-    start_symbol,
-    pad_symbol,
-    end_symbol,
     device,
     max_len = 20,
     only_best: bool = False,
@@ -17,9 +22,9 @@ def beam_search(
 ):
     model.eval()
     batch_size = X.shape[0]
-    Y = torch.ones(batch_size, 1, device=device).fill_(start_symbol).type(torch.long) # (batch_size, 1)
-    src_padding_mask = X == pad_symbol
-    tgt_padding_mask = Y == pad_symbol
+    Y = torch.ones(batch_size, 1, device=device).fill_(BOS_IDX).type(torch.long) # (batch_size, 1)
+    src_padding_mask = X == PAD_IDX
+    tgt_padding_mask = Y == PAD_IDX
     enc = model.encode(X, src_padding_mask)
     # get decoding for last last token in Y
     dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)[:, -1:, :] # (batch_size, 1, d_model)
@@ -33,10 +38,10 @@ def beam_search(
     Y = torch.cat((Y, next_tokens.flatten().unsqueeze(dim=1)), dim=-1) # (batch_size*beam_width, 2)
     next_probabilities = next_probabilities.flatten().unsqueeze(1).repeat(1, vocabulary_size) # (batch_size*beam_width, tgt_vocab_size)
     X = X.repeat((beam_width, 1, 1)).transpose(0, 1).flatten(end_dim=1) # (batch_size*beam_width, src_seq_len)
-    src_padding_mask = X == pad_symbol
+    src_padding_mask = X == PAD_IDX
     enc = model.encode(X, src_padding_mask) # (batch_size*beam_width, src_seq_len, d_model)
     for _ in range(max_len - 1):
-        tgt_padding_mask = Y == pad_symbol
+        tgt_padding_mask = Y == PAD_IDX
         dec = model.decode(Y, enc, tgt_padding_mask, src_padding_mask)[:, -1:, :] # (batch_size*beam_width, 1, d_model)
         next_logits = model.unembedding(dec).squeeze(1) # (batch_size*beam_width, tgt_vocab_size)
         # adding log probs instead multiplying probs
@@ -57,7 +62,7 @@ def beam_search(
         Y = torch.cat((Y, next_tokens), axis = 1)
 
     # replace everything after eos token with pad token
-    pad_after_eos_mask = Y == end_symbol
+    pad_after_eos_mask = Y == EOS_IDX
     for row in pad_after_eos_mask:
         first_true_found = False
         for i, val in enumerate(row):
@@ -66,7 +71,7 @@ def beam_search(
                 first_true_found = True
             elif first_true_found:
                 row[i] = True
-    Y = Y.masked_fill(pad_after_eos_mask, pad_symbol)
+    Y = Y.masked_fill(pad_after_eos_mask, PAD_IDX)
 
     # length normalization
     ## calculate true length of beam sequences 
@@ -91,9 +96,6 @@ def evaluate_beam_search(
     model: torch.nn.Module,
     test_dataloader,
     beam_width: int,
-    start_symbol,
-    pad_symbol,
-    end_symbol,
     device
 ):
     model.eval()
@@ -106,9 +108,6 @@ def evaluate_beam_search(
             model=model,
             X=src,
             beam_width=beam_width,
-            start_symbol=start_symbol,
-            pad_symbol=pad_symbol,
-            end_symbol=end_symbol,
             device=device,
             max_len=src.shape[1] + 5,
             only_best=True
@@ -123,9 +122,6 @@ def translate(
     model: torch.nn.Module,
     src_sentence: str,
     beam_width: int,
-    start_symbol,
-    pad_symbol,
-    end_symbol,
     device,
     max_len
 ):
@@ -135,22 +131,19 @@ def translate(
         model=model,
         X=src,
         beam_width=beam_width,
-        start_symbol=start_symbol,
-        pad_symbol=pad_symbol,
-        end_symbol=end_symbol,
         device=device,
         max_len=max_len,
         only_best=True
     )[0]
     return tokenizer.decode(tgt_tokens.tolist())
 
-def greedy_decode(model, src, max_len, start_symbol, pad_symbol, end_symbol, device):
+def greedy_decode(model, src, max_len, device):
     src = src.to(device)
-    src_padding_mask = src == pad_symbol
+    src_padding_mask = src == PAD_IDX
     memory = model.encode(src, src_padding_mask)
     memory = memory.to(device)
-    ys = torch.ones(1, 1).fill_(start_symbol).type(torch.long).to(device)
-    tgt_padding_mask = ys == pad_symbol
+    ys = torch.ones(1, 1).fill_(BOS_IDX).type(torch.long).to(device)
+    tgt_padding_mask = ys == PAD_IDX
     for _ in range(max_len-1):
         out = model.decode(ys, memory, tgt_padding_mask, src_padding_mask)
         prob = model.unembedding(out[:, -1:, :])
@@ -158,21 +151,18 @@ def greedy_decode(model, src, max_len, start_symbol, pad_symbol, end_symbol, dev
         next_word = next_word.item()
 
         ys = torch.cat([ys, torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=1)
-        tgt_padding_mask = ys == pad_symbol
-        if next_word == end_symbol:
+        tgt_padding_mask = ys == PAD_IDX
+        if next_word == EOS_IDX:
             break
     return ys
 
-def translate_greedy(tokenizer, model: torch.nn.Module, src_sentence: str, start_symbol, pad_symbol, end_symbol):
+def translate_greedy(tokenizer, model: torch.nn.Module, src_sentence: str):
     model.eval()
     src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
     num_tokens = src.shape[1]
     tgt_tokens = greedy_decode(
         model=model,
         src=src,
-        max_len=num_tokens + 5,
-        start_symbol=start_symbol,
-        pad_symbol=pad_symbol,
-        end_symbol=end_symbol
+        max_len=num_tokens + 5
     ).flatten()
     return tokenizer.decode(tgt_tokens.tolist())
