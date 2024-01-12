@@ -91,15 +91,13 @@ def beam_search(
     return Y, probabilities
 
 
-def evaluate_beam_search(
+def get_bleu_score(
     tokenizer,
     model: torch.nn.Module,
     test_dataloader,
     beam_width: int,
     device
 ):
-    model.eval()
-
     for src, tgt in test_dataloader:
         src = src.to(device)
         tgt = tokenizer.decode_batch(tgt.tolist())

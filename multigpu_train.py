@@ -53,7 +53,7 @@ class Trainer:
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX, label_smoothing=0.1)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=0.001, betas=(0.9, 0.98), eps=1e-9)
         self.scaler = torch.cuda.amp.GradScaler()
-        self.schedule = self.get_schedule()
+        self.schedule = self._get_schedule()
         self.epochs_run = 0
         self.snapshot_path = "checkpoints/snapshot.tar"
         if os.path.exists(self.snapshot_path):
@@ -86,7 +86,7 @@ class Trainer:
         self.epochs_run = snapshot["EPOCHS_RUN"]
         print(f"Resuming training from snapshot at Epoch {self.epochs_run}")
 
-    def get_schedule(self):
+    def _get_schedule(self):
         steps = epochs * len(self.train_data) // grad_accumulation
         warumup_steps = int(0.04 * steps)
         warmup_schedule = torch.optim.lr_scheduler.LinearLR(self.optimizer, start_factor=0.01, total_iters=warumup_steps)
