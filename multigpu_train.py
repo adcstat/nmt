@@ -160,7 +160,7 @@ class Trainer:
                 "Zwei Zebras laufen hintereinander."
             ]
             for sentence in test_sentences:
-                translation = translate_greedy(tokenizer, self.model, sentence, self.gpu_id)
+                translation = translate_greedy(tokenizer, self.model.module, sentence, self.gpu_id)
                 print(f"src: {sentence} \ntranslation: {translation}")
 
     def train(self):
