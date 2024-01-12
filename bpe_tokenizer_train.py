@@ -51,14 +51,15 @@ def train_tokenizer(tokenizer, text_list):
 
 def process_data(tokenizer, data):
     processed_data = {}
-    for split in ["train", "validation"]:
+    for split in data:
         # calculate token count
         with_lengths = [[src, tgt, max(len(tokenizer.encode(src).ids), len(tokenizer.encode(tgt).ids))] for src, tgt in data[split]]
         # sort by token count decreasing
         sorted_data = sorted(with_lengths, key=lambda x: x[2], reverse=True)
         # clip length of sentence to avoid extremely uneven batches
-        clipped_data = [[src, tgt, length] for src, tgt, length in sorted_data if length <= max_length]
-        processed_data[split] = clipped_data
+        if split != "test":
+            sorted_data = [[src, tgt, length] for src, tgt, length in sorted_data if length <= max_length]
+        processed_data[split] = sorted_data
     return processed_data
 
 
