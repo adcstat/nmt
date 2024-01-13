@@ -156,9 +156,16 @@ class Trainer:
         if self.gpu_id == 0:
             self.model.eval()
             test_sentences = [
-                "Das Auto steht auf dem Berg.",
-                "Was kostet der Fisch?",
-                "Zwei Zebras laufen hintereinander."
+                "Ich lese ein Buch.",
+                "Gestern ging ich ins Kino.",
+                "Er wäscht sich gerade die Hände.",
+                "Sie kann heute nicht zur Arbeit kommen.",
+                "Wenn es regnet, bleiben wir zu Hause.",
+                "Ich weiß, dass du morgen früh aufstehen musst.",
+                "Das Buch wurde von einem berühmten Autor geschrieben.",
+                "Sie sagte, dass sie morgen nicht kommen könne.",
+                "Obwohl es stark regnete, entschieden sie sich, spazieren zu gehen, weil sie frische Luft brauchten.",
+                "Trotz des unerwarteten Wetterumschwungs entschied der erfahrene Kapitän, den Kurs beizubehalten, um den engen Zeitplan einhalten zu können."
             ]
             for sentence in test_sentences:
                 translation = translate_greedy(tokenizer, self.model.module, sentence, self.gpu_id)
