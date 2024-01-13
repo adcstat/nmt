@@ -76,6 +76,7 @@ class Trainer:
         # save snapshot fpr checkpoint averaging
         torch.save(snapshot, f"checkpoints/checkpoint_{epoch}.tar")
         print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
+        print("********************************************")
 
     def _load_snapshot(self, snapshot_path):
         loc = f"cuda:{self.gpu_id}"
@@ -103,8 +104,8 @@ class Trainer:
             loss = self._run_batch(src, tgt, batch_i)
             losses = np.append(losses, loss)
             if batch_i % (grad_accumulation * 100) == 0:
-                print("------------------------------------")
                 print(f"[GPU{self.gpu_id}] accumulated loss so far (batch {batch_i}; opt step {batch_i / grad_accumulation}): ", losses.sum() / batch_i)
+                print("------------------------------------")
         return losses
 
     def _run_batch(self, src, tgt, batch_i):
