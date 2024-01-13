@@ -9,3 +9,4 @@ wmt14.json
 *.pth
 *.tar
 *.zip
+*.gz
