@@ -120,8 +120,7 @@ def translate(
     model: torch.nn.Module,
     src_sentence: str,
     beam_width: int,
-    device,
-    max_len
+    device
 ):
     src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
     src = src.to(device)
@@ -130,13 +129,13 @@ def translate(
         X=src,
         beam_width=beam_width,
         device=device,
-        max_len=max_len,
+        max_len=src.shape[1]+5,
         only_best=True
     )[0]
     return tokenizer.decode(tgt_tokens.tolist())
 
 def greedy_decode(model, src, max_len, device):
-    src = src.to(device)
+    model.eval()
     src_padding_mask = src == PAD_IDX
     memory = model.encode(src, src_padding_mask)
     memory = memory.to(device)
@@ -155,13 +154,12 @@ def greedy_decode(model, src, max_len, device):
     return ys
 
 def translate_greedy(tokenizer, model: torch.nn.Module, src_sentence: str, device):
-    model.eval()
     src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
-    num_tokens = src.shape[1]
+    src = src.to(device)
     tgt_tokens = greedy_decode(
         model=model,
         src=src,
-        max_len=num_tokens + 5,
+        max_len=src.shape[1] + 5,
         device=device
     ).flatten()
     return tokenizer.decode(tgt_tokens.tolist())
