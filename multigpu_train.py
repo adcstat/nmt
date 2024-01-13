@@ -12,7 +12,7 @@ from tokenizers import Tokenizer
 
 from utils.data_utils import get_dataloader, WMT14train, WMT14val
 from utils import transformer_utils as tfu
-from utils.utils import translate_greedy
+from utils.utils import translate
 
 with open("params.json", "r") as fp:
     params = json.load(fp)
@@ -167,7 +167,7 @@ class Trainer:
                 "Trotz des unerwarteten Wetterumschwungs entschied der erfahrene Kapitän, den Kurs beizubehalten, um den engen Zeitplan einhalten zu können."
             ]
             for sentence in test_sentences:
-                translation = translate_greedy(tokenizer, self.model.module, sentence, self.gpu_id)
+                translation = translate(tokenizer, self.model.module, sentence, 4, self.gpu_id)
                 print(f"src: {sentence} \ntranslation: {translation}")
 
     def train(self):

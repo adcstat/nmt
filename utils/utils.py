@@ -129,7 +129,7 @@ def translate(
         X=src,
         beam_width=beam_width,
         device=device,
-        max_len=src.shape[1]+5,
+        max_len=src.shape[1] + 5,
         only_best=True
     )[0]
     return tokenizer.decode(tgt_tokens.tolist())
