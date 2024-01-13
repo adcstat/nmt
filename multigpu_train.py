@@ -172,7 +172,7 @@ class Trainer:
                 print(f"src: {sentence} \ntranslation: {translation}")
 
     def train(self):
-        for epoch in range(self.epochs_run, epochs):
+        for epoch in range(self.epochs_run+1, epochs):
             start_time = timer()
             train_losses = self._run_epoch(epoch)
             duration = timer() - start_time
