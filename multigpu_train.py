@@ -154,7 +154,6 @@ class Trainer:
 
     def _test_translate(self):
         if self.gpu_id == 0:
-            self.model.eval()
             test_sentences = [
                 "Ich lese ein Buch.",
                 "Gestern ging ich ins Kino.",
