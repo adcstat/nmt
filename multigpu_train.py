@@ -168,7 +168,7 @@ class Trainer:
                 "Despite the burgeoning apprehensions, the dedicated linguists, meticulously analyzing archaic manuscripts, endeavored to decipher the intricate symbology inherent in the ancient texts."
             ]
             for sentence in test_sentences:
-                translation = translate(tokenizer, self.model.module, sentence, 4, self.gpu_id)
+                translation = translate(tokenizer, self.model.module, sentence, 4)
                 print(f"src: {sentence} \ntranslation: {translation}")
 
     def train(self):
