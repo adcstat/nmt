@@ -156,16 +156,16 @@ class Trainer:
     def _test_translate(self):
         if self.gpu_id == 0:
             test_sentences = [
-                "Ich lese ein Buch.",
-                "Gestern ging ich ins Kino.",
-                "Er wäscht sich gerade die Hände.",
-                "Sie kann heute nicht zur Arbeit kommen.",
-                "Wenn es regnet, bleiben wir zu Hause.",
-                "Ich weiß, dass du morgen früh aufstehen musst.",
-                "Das Buch wurde von einem berühmten Autor geschrieben.",
-                "Sie sagte, dass sie morgen nicht kommen könne.",
-                "Obwohl es stark regnete, entschieden sie sich, spazieren zu gehen, weil sie frische Luft brauchten.",
-                "Trotz des unerwarteten Wetterumschwungs entschied der erfahrene Kapitän, den Kurs beizubehalten, um den engen Zeitplan einhalten zu können."
+                "Birds fly in the sky.",
+                "The large dog is barking loudly.",
+                "She painted the wall blue yesterday.",
+                "They have not visited the new museum.",
+                "If it snows, we will go skiing tomorrow.",
+                "Before the sun sets, the children play in the park, under the big oak tree.",
+                "The cake, which was baked by my grandmother, was eaten at the party.",
+                "If I were elected president, I would implement major reforms.",
+                "She must finish her report before she can leave, even though she prefers to do it tomorrow.",
+                "Despite the burgeoning apprehensions, the dedicated linguists, meticulously analyzing archaic manuscripts, endeavored to decipher the intricate symbology inherent in the ancient texts."
             ]
             for sentence in test_sentences:
                 translation = translate(tokenizer, self.model.module, sentence, 4, self.gpu_id)
