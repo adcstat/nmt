@@ -96,7 +96,8 @@ def get_bleu_score(
     model: torch.nn.Module,
     test_dataloader,
     beam_width: int,
-    device
+    device,
+    return_preds: bool = False
 ):
     for src, tgt in test_dataloader:
         src = src.to(device)
@@ -111,7 +112,8 @@ def get_bleu_score(
             only_best=True
         )
         predicted_seqs = tokenizer.decode_batch(predicted_seqs.tolist())
-
+    if return_preds:
+        return sacre_bleu_score(predicted_seqs, [[tgt_item] for tgt_item in tgt]), predicted_seqs
     return sacre_bleu_score(predicted_seqs, [[tgt_item] for tgt_item in tgt])
 
 
