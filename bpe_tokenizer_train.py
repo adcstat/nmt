@@ -22,7 +22,7 @@ max_length = params["max_length"]
 
 def load_data():
     data_iter = load_dataset("wmt14", 'de-en')
-    data = {split: [[item["translation"]["de"], item["translation"]["en"]] for item in data_iter[split]] for split in ["train", "validation", "test"]}
+    data = {split: [[item["translation"]["en"], item["translation"]["de"]] for item in data_iter[split]] for split in ["train", "validation", "test"]}
     return data
 
 def flatten_data(data):
