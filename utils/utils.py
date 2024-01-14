@@ -112,7 +112,7 @@ def get_bleu_score(
         )
         predicted_seqs = tokenizer.decode_batch(predicted_seqs.tolist())
 
-    return sacre_bleu_score(predicted_seqs, tgt)
+    return sacre_bleu_score(predicted_seqs, [[tgt_item] for tgt_item in tgt])
 
 
 def translate(
