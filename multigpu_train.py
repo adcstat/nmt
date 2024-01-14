@@ -12,7 +12,7 @@ from tokenizers import Tokenizer
 
 from utils.data_utils import get_dataloader, BatchedDataset
 from utils import transformer_utils as tfu
-from utils.utils import translate
+from utils.decoding_utils import translate
 
 with open("params.json", "r") as fp:
     params = json.load(fp)
