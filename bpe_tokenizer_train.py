@@ -65,13 +65,18 @@ def process_data(tokenizer, data):
 
 def main():
     data = load_data()
+    print("loaded data!")
     train_text_list = flatten_data(data["train"])
     tokenizer = initialize_tokenizer()
+    print("initialized tokenizer!")
     train_tokenizer(tokenizer, train_text_list)
+    print("trained tokenizer!")
     processed_data = process_data(tokenizer, data)
+    print("processed data!")
     data.update(processed_data)
     with open("wmt14.json", "w") as fp:
         json.dump(data, fp)
+    print("saved data!")
 
 if __name__ == "__main__":
     main()
