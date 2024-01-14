@@ -10,7 +10,7 @@ import torch.distributed as dist
 
 from tokenizers import Tokenizer
 
-from utils.data_utils import get_dataloader, WMT14train, WMT14val
+from utils.data_utils import get_dataloader, WMT14
 from utils import transformer_utils as tfu
 from utils.utils import translate
 
@@ -192,8 +192,8 @@ def main():
     # easily fits into memory
     with open("wmt14.json", "r") as fp:
         wmt14 = json.load(fp)
-    train_data = get_dataloader(WMT14train(wmt14, tokens_per_batch))
-    val_data = get_dataloader(WMT14val(wmt14, tokens_per_batch))
+    train_data = get_dataloader(WMT14(wmt14["train"], tokens_per_batch))
+    val_data = get_dataloader(WMT14(wmt14["validation"], tokens_per_batch))
     model = tfu.Transformer(
         vocab_size=vocab_size,
         d_model=d_model,

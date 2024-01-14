@@ -21,18 +21,9 @@ def get_dataloader(dataset: Dataset):
         sampler=DistributedSampler(dataset)
     )
 
-class WMT14train(Dataset):
+class WMT14(Dataset):
     def __init__(self, wmt14, tokens_per_batch):
-        self.data = batch_data_fn(wmt14["train"], tokens_per_batch)
-        self.size = len(self.data)
-    def __len__(self):
-        return self.size
-    def __getitem__(self, index):
-        return self.data[index]
-
-class WMT14val(Dataset):
-    def __init__(self, wmt14, tokens_per_batch):
-        self.data = batch_data_fn(wmt14["validation"], tokens_per_batch)
+        self.data = batch_data_fn(wmt14, tokens_per_batch)
         self.size = len(self.data)
     def __len__(self):
         return self.size
