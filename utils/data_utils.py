@@ -21,9 +21,9 @@ def get_dataloader(dataset: Dataset):
         sampler=DistributedSampler(dataset)
     )
 
-class WMT14(Dataset):
-    def __init__(self, wmt14, tokens_per_batch):
-        self.data = batch_data_fn(wmt14, tokens_per_batch)
+class BatchedDataset(Dataset):
+    def __init__(self, data, tokens_per_batch):
+        self.data = batch_data_fn(data, tokens_per_batch)
         self.size = len(self.data)
     def __len__(self):
         return self.size
