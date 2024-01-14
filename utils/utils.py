@@ -99,11 +99,14 @@ def get_bleu_score(
     device,
     return_preds: bool = False
 ):
+    preds_all = []
+    tgt_all = []
     for src, tgt in test_dataloader:
         src = src.to(device)
         tgt = tokenizer.decode_batch(tgt.tolist())
+        tgt_all.extend(tgt)
 
-        predicted_seqs = beam_search(
+        preds = beam_search(
             model=model,
             X=src,
             beam_width=beam_width,
@@ -111,10 +114,11 @@ def get_bleu_score(
             max_len=src.shape[1] + 5,
             only_best=True
         )
-        predicted_seqs = tokenizer.decode_batch(predicted_seqs.tolist())
+        preds = tokenizer.decode_batch(preds.tolist())
+        preds_all.extend(preds)
     if return_preds:
-        return sacre_bleu_score(predicted_seqs, [[tgt_item] for tgt_item in tgt]), predicted_seqs
-    return sacre_bleu_score(predicted_seqs, [[tgt_item] for tgt_item in tgt])
+        return sacre_bleu_score(preds_all, [[tgt_item] for tgt_item in tgt_all]), preds_all
+    return sacre_bleu_score(preds_all, [[tgt_item] for tgt_item in tgt_all])
 
 
 def translate(
