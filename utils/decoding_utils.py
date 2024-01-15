@@ -90,7 +90,7 @@ def beam_search_batch(
         return Y[:, 0, :]
     return Y, probabilities
 
-def get_bleu_score_batch(
+def get_bleu_score(
     tokenizer,
     model: torch.nn.Module,
     test_dataloader,
@@ -121,11 +121,11 @@ def get_bleu_score_batch(
 
 
 @torch.no_grad()
-def beam_search_single(model, src, beam_width: int = 3, length_norm_exp: float = 0.7):
+def beam_search_single(model, src, beam_width, device, length_norm_exp: float = 0.7):
     model.eval()
     src_padding_mask = src == PAD_IDX
     memory = model.encode(src, src_padding_mask)
-    start_token = torch.ones(1, 1).fill_(BOS_IDX).type(torch.long)
+    start_token = torch.ones(1, 1, device=device).fill_(BOS_IDX).type(torch.long)
 
     # Start the beam with the start token
     beam = [(start_token, 0)]  # List of tuples (sequence, score)
@@ -168,40 +168,23 @@ def translate(
     model: torch.nn.Module,
     src_sentence: str,
     beam_width: int,
+    device
 ):
-    src = torch.tensor(tokenizer.encode(src_sentence).ids).unsqueeze(dim=0)
+    src = torch.tensor(tokenizer.encode(src_sentence).ids, device=device).unsqueeze(dim=0)
     tgt_tokens = beam_search_single(
         model=model,
         src=src,
-        beam_width=beam_width
+        beam_width=beam_width,
+        device=device
     )
     return tokenizer.decode(tgt_tokens.tolist())
 
-def get_bleu_score_single(
-    tokenizer,
-    model: torch.nn.Module,
-    test_data,
-    beam_width: int,
-    return_preds: bool = False
-):
-    preds_all = []
-    for src in test_data[0]:
-        pred = translate(
-            tokenizer=tokenizer,
-            model=model,
-            src=src,
-            beam_width=beam_width,
-        )
-        preds_all.append(pred)
-    if return_preds:
-        return sacre_bleu_score(preds_all, [[tgt_item] for tgt_item in test_data[1]]), preds_all
-    return sacre_bleu_score(preds_all, [[tgt_item] for tgt_item in test_data[1]])
 
-def greedy_decode(model, src, max_len):
+def greedy_decode(model, src, max_len, device):
     model.eval()
     src_padding_mask = src == PAD_IDX
     memory = model.encode(src, src_padding_mask)
-    ys = torch.ones(1, 1).fill_(BOS_IDX).type(torch.long)
+    ys = torch.ones(1, 1, device=device).fill_(BOS_IDX).type(torch.long)
     tgt_padding_mask = ys == PAD_IDX
     for _ in range(max_len-1):
         out = model.decode(ys, memory, tgt_padding_mask, src_padding_mask)
@@ -209,17 +192,18 @@ def greedy_decode(model, src, max_len):
         _, next_word = torch.max(prob, dim=-1)
         next_word = next_word.item()
 
-        ys = torch.cat([ys, torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=1)
+        ys = torch.cat([ys, torch.ones(1, 1, device=device).type_as(src.data).fill_(next_word)], dim=1)
         tgt_padding_mask = ys == PAD_IDX
         if next_word == EOS_IDX:
             break
     return ys.flatten()
 
-def translate_greedy(tokenizer, model: torch.nn.Module, src_sentence: str):
-    src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids).unsqueeze(dim=0)
+def translate_greedy(tokenizer, model: torch.nn.Module, src_sentence: str, device):
+    src = torch.tensor(tokenizer.encode(src_sentence.rstrip("\n")).ids, device=device).unsqueeze(dim=0)
     tgt_tokens = greedy_decode(
         model=model,
         src=src,
-        max_len=src.shape[1] + 5
+        max_len=src.shape[1] + 5,
+        device=device
     )
     return tokenizer.decode(tgt_tokens.tolist())
