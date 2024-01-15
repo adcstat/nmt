@@ -104,7 +104,7 @@ class Trainer:
             loss = self._run_batch(src, tgt, batch_i)
             losses = np.append(losses, loss)
             if batch_i % (grad_accumulation * 100) == 0:
-                print(f"[GPU{self.gpu_id}] accumulated loss so far (batch {batch_i}; opt step {batch_i / grad_accumulation}): ", losses.sum() / batch_i)
+                print(f"[GPU{self.gpu_id}] Loss since last 100 opt steps (batch {batch_i}; opt step {batch_i / grad_accumulation}): ", losses[-(grad_accumulation * 100):].sum() / (grad_accumulation * 100))
                 print("------------------------------------")
         return losses
 
@@ -153,32 +153,13 @@ class Trainer:
 
         return losses / self.val_data_len
 
-    def _test_translate(self):
-        if self.gpu_id == 0:
-            test_sentences = [
-                "Birds fly in the sky.",
-                "The large dog is barking loudly.",
-                "She painted the wall blue yesterday.",
-                "They have not visited the new museum.",
-                "If it snows, we will go skiing tomorrow.",
-                "Before the sun sets, the children play in the park, under the big oak tree.",
-                "The cake, which was baked by my grandmother, was eaten at the party.",
-                "If I were elected president, I would implement major reforms.",
-                "She must finish her report before she can leave, even though she prefers to do it tomorrow.",
-                "Despite the burgeoning apprehensions, the dedicated linguists, meticulously analyzing archaic manuscripts, endeavored to decipher the intricate symbology inherent in the ancient texts."
-            ]
-            for sentence in test_sentences:
-                translation = translate(tokenizer, self.model.module, sentence, 4)
-                print(f"src: {sentence} \ntranslation: {translation}")
-
     def train(self):
-        for epoch in range(self.epochs_run+1, epochs):
+        for epoch in range(self.epochs_run+1, epochs+1):
             start_time = timer()
             train_losses = self._run_epoch(epoch)
             duration = timer() - start_time
             val_loss = self._evaluate()
             print(f"[GPU{self.gpu_id}] epoch duration: {duration} | val_loss: {val_loss}")
-            self._test_translate()
             all_train_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
             all_val_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
             dist.gather_object(train_losses, all_train_losses, dst=0)
