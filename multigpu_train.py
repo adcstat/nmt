@@ -83,16 +83,47 @@ class Trainer:
         snapshot = torch.load(snapshot_path, map_location=loc)
         self.model.load_state_dict(snapshot["MODEL_STATE"])
         self.optimizer.load_state_dict(snapshot["OPTIMIZER_STATE"])
-        self.schedule.load_state_dict(snapshot["SCHEDULE_STATE"])
+        # self.schedule.load_state_dict(snapshot["SCHEDULE_STATE"])
+        self.schedule.load_state_dict({'_milestones': [301, 7545],
+ 'last_epoch': 7545,
+ '_last_lr': [0.001],
+ '_schedulers': [{'start_factor': 0.01,
+   'end_factor': 1.0,
+   'total_iters': 301,
+   'base_lrs': [0.001],
+   'last_epoch': 300,
+   'verbose': False,
+   '_step_count': 301,
+   '_get_lr_called_within_step': False,
+   '_last_lr': [0.0009967109634551497]},
+  {'T_max': 7244,
+   'eta_min': 0.0001,
+   'base_lrs': [0.001],
+   'last_epoch': 7243,
+   'verbose': False,
+   '_step_count': 7245,
+   '_get_lr_called_within_step': False,
+   '_last_lr': [0.00010000004231802329]},
+  {'T_max': 2515,
+   'eta_min': 0.0001,
+   'base_lrs': [0.001],
+   'last_epoch': 0,
+   'verbose': False,
+   '_step_count': 2,
+   '_get_lr_called_within_step': False,
+   '_last_lr': [0.001]}]})
         self.epochs_run = snapshot["EPOCHS_RUN"]
         print(f"Resuming training from snapshot at Epoch {self.epochs_run}")
 
     def _get_schedule(self):
-        steps = epochs * len(self.train_data) // grad_accumulation
-        warumup_steps = int(0.04 * steps)
+        first_steps = (epochs-5) * len(self.train_data) // grad_accumulation
+        warumup_steps = int(0.04 * first_steps)
+        cosine_1_steps = first_steps - warumup_steps
         warmup_schedule = torch.optim.lr_scheduler.LinearLR(self.optimizer, start_factor=0.01, total_iters=warumup_steps)
-        cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=steps-warumup_steps, eta_min=0.0001)
-        schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps])
+        cosine_1_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=cosine_1_steps, eta_min=0.0001)
+        cosine_2_steps = (5 * len(self.train_data) // grad_accumulation)
+        cosine_2_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=cosine_2_steps, eta_min=0.0001)
+        schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_1_schedule, cosine_2_schedule], milestones=[warumup_steps, first_steps])
         return schedule
 
     def _run_epoch(self, epoch):
