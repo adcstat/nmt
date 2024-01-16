@@ -22,8 +22,8 @@ max_length = params["max_length"]
 
 def load_data():
     data_iter = load_dataset("wmt14", 'de-en')
-    data = {split: [[item["translation"]["en"], item["translation"]["de"]] for item in data_iter[split]] for split in ["train", "validation", "test"]}
-    return data
+    data_dict = {split: [[item["translation"]["en"], item["translation"]["de"]] for item in data_iter[split]] for split in ["train", "validation", "test"]}
+    return data_dict
 
 def flatten_data(data):
     # make flattened list of all strings for bpe trainer
@@ -49,11 +49,27 @@ def train_tokenizer(tokenizer, text_list):
     tokenizer.train_from_iterator(text_list, trainer)
     tokenizer.save("bpe_tokenizer.json")
 
-def process_data(tokenizer, data):
+def process_data(tokenizer, data_dict):
+    tokenizer.no_padding()
     processed_data = {}
-    for split in data:
+    for split in data_dict:
+        data = data_dict[split]
         # calculate token count
-        with_lengths = [[src, tgt, max(len(tokenizer.encode(src).ids), len(tokenizer.encode(tgt).ids))] for src, tgt in data[split]]
+        data_src = []
+        data_tgt = []
+        for src, tgt in data:
+            data_src.append(src)
+            data_tgt.append(tgt)
+
+        data_src_enc = tokenizer.encode_batch(data_src)
+        data_tgt_enc = tokenizer.encode_batch(data_tgt)
+
+        data_src_lengths = [len(item.ids) for item in data_src_enc]
+        data_tgt_lengths = [len(item.ids) for item in data_tgt_enc]
+
+        max_lengths = [max(src_length, tgt_length) for src_length, tgt_length in zip(data_src_lengths, data_tgt_lengths)]
+        with_lengths = list(zip(data_src, data_tgt, max_lengths))
+
         # sort by token count decreasing
         sorted_data = sorted(with_lengths, key=lambda x: x[2], reverse=True)
         # clip length of sentence to avoid extremely uneven batches
@@ -64,18 +80,17 @@ def process_data(tokenizer, data):
 
 
 def main():
-    data = load_data()
+    data_dict = load_data()
     print("loaded data!")
-    train_text_list = flatten_data(data["train"])
+    train_text_list = flatten_data(data_dict["train"])
     tokenizer = initialize_tokenizer()
     print("initialized tokenizer!")
     train_tokenizer(tokenizer, train_text_list)
     print("trained tokenizer!")
-    processed_data = process_data(tokenizer, data)
+    processed_data = process_data(tokenizer, data_dict)
     print("processed data!")
-    data.update(processed_data)
     with open("wmt14.json", "w") as fp:
-        json.dump(data, fp)
+        json.dump(processed_data, fp)
     print("saved data!")
 
 if __name__ == "__main__":
