@@ -104,7 +104,7 @@ class Trainer:
             batch_i += 1
             loss = self._run_batch(src, tgt, batch_i)
             losses = np.append(losses, loss)
-            if batch_i % (grad_accumulation * 100) == 0:
+            if batch_i % (grad_accumulation * 10) == 0:
                 print(f"[GPU{self.gpu_id}] Loss since last 100 opt steps (batch {batch_i}; opt step {batch_i / grad_accumulation}): ", losses[-(grad_accumulation * 100):].sum() / (grad_accumulation * 100))
                 print("------------------------------------")
         return losses
