@@ -48,23 +48,32 @@ class Trainer:
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.world_size = dist.get_world_size()
         self.model = model.to(self.gpu_id)
+        self.model = DDP(self.model, device_ids=[self.gpu_id])
         self.train_data = train_data
+
         self.train_data_len = len(self.train_data)
         self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
         self.steps_till_print = self.train_data_len // 10
         self.val_data = val_data
         self.val_data_len = len(self.val_data)
+        self._print_infos()
+
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX, label_smoothing=0.1)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=0.001, betas=(0.9, 0.98), eps=1e-9)
         self.scaler = torch.cuda.amp.GradScaler()
         self.schedule = self._get_schedule()
+
         self.epochs_run = 0
         self.snapshot_path = "checkpoints/snapshot.tar"
         if os.path.exists(self.snapshot_path):
             print("Loading snapshot")
             self._load_snapshot(self.snapshot_path)
 
-        self.model = DDP(self.model, device_ids=[self.gpu_id])
+    def _print_infos(self):
+        if self.gpu_id == 0:
+            print(f"Model has {sum(p.numel() for p in self.model.parameters())/1e6}M parameters")
+            print(f"Training data has {self.train_data_len} batches")
+            print(f"There are {self.opt_steps_per_epoch} opt steps per epoch")
 
     def _save_snapshot(self, epoch, train_losses, val_loss):
         snapshot = {
