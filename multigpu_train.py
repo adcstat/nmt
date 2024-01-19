@@ -49,6 +49,8 @@ class Trainer:
         self.world_size = dist.get_world_size()
         self.model = model.to(self.gpu_id)
         self.train_data = train_data
+        self.train_data_len = len(self.train_data)
+        self.steps_till_print = self.train_data_len // 10
         self.val_data = val_data
         self.val_data_len = len(self.val_data)
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX, label_smoothing=0.1)
@@ -89,9 +91,9 @@ class Trainer:
         print(f"Resuming training from snapshot at Epoch {self.epochs_run}")
 
     def _get_schedule(self):
-        warumup_steps = len(self.train_data) // grad_accumulation # 1 epoch
+        warumup_steps = self.train_data_len // grad_accumulation # 1 epoch
         warmup_schedule = torch.optim.lr_scheduler.LinearLR(self.optimizer, start_factor=0.01, total_iters=warumup_steps)
-        steps_till_restarts = epochs_till_restart * len(self.train_data) // grad_accumulation
+        steps_till_restarts = epochs_till_restart * self.train_data_len // grad_accumulation
         cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=steps_till_restarts, eta_min=0.0001)
         schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps+1])
         return schedule
@@ -104,8 +106,8 @@ class Trainer:
             batch_i += 1
             loss = self._run_batch(src, tgt, batch_i)
             losses = np.append(losses, loss)
-            if batch_i % (grad_accumulation * 10) == 0:
-                print(f"[GPU{self.gpu_id}] Loss since last 100 opt steps (batch {batch_i}; opt step {batch_i / grad_accumulation}): ", losses[-(grad_accumulation * 100):].sum() / (grad_accumulation * 100))
+            if batch_i % self.steps_till_print == 0:
+                print(f"[GPU{self.gpu_id}] Loss since last {self.steps_till_print} steps (batch {batch_i}; opt step {batch_i // grad_accumulation}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
                 print("------------------------------------")
         return losses
 
