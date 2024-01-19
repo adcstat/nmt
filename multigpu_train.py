@@ -48,7 +48,6 @@ class Trainer:
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.world_size = dist.get_world_size()
         self.model = model.to(self.gpu_id)
-        self.model = DDP(self.model, device_ids=[self.gpu_id])
         self.train_data = train_data
 
         self.train_data_len = len(self.train_data)
@@ -68,6 +67,8 @@ class Trainer:
         if os.path.exists(self.snapshot_path):
             print("Loading snapshot")
             self._load_snapshot(self.snapshot_path)
+
+        self.model = DDP(self.model, device_ids=[self.gpu_id])
 
     def _print_infos(self):
         if self.gpu_id == 0:
