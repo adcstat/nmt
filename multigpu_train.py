@@ -53,7 +53,7 @@ class Trainer:
 
         self.train_data_len = len(self.train_data)
         self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
-        self.steps_till_print = self.train_data_len // 15
+        self.steps_till_print = 500
         self.val_data = val_data
         self.val_data_len = len(self.val_data)
         self._print_infos()
