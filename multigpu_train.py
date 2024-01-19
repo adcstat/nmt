@@ -53,7 +53,7 @@ class Trainer:
 
         self.train_data_len = len(self.train_data)
         self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
-        self.steps_till_print = self.train_data_len // 10
+        self.steps_till_print = self.train_data_len // 15
         self.val_data = val_data
         self.val_data_len = len(self.val_data)
         self._print_infos()
@@ -116,9 +116,8 @@ class Trainer:
             batch_i += 1
             loss = self._run_batch(src, tgt, batch_i)
             losses = np.append(losses, loss)
-            if batch_i % self.steps_till_print == 0:
-                print(f"[GPU{self.gpu_id}] Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
-                print("------------------------------------")
+            if (batch_i % self.steps_till_print == 0) and (self.gpu_id == 0):
+                print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
         return losses
 
     def _run_batch(self, src, tgt, batch_i):
