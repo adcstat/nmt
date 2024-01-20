@@ -49,12 +49,19 @@ class Trainer:
         self.world_size = dist.get_world_size()
         self.model = model.to(self.gpu_id)
         self.train_data = train_data
+
+        self.train_data_len = len(self.train_data)
+        self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
+        self.steps_till_print = 500
         self.val_data = val_data
         self.val_data_len = len(self.val_data)
+        self._print_infos()
+
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX, label_smoothing=0.1)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=0.001, betas=(0.9, 0.98), eps=1e-9)
         self.scaler = torch.cuda.amp.GradScaler()
         self.schedule = self._get_schedule()
+
         self.epochs_run = 0
         self.snapshot_path = "checkpoints/snapshot.tar"
         if os.path.exists(self.snapshot_path):
@@ -62,6 +69,12 @@ class Trainer:
             self._load_snapshot(self.snapshot_path)
 
         self.model = DDP(self.model, device_ids=[self.gpu_id])
+
+    def _print_infos(self):
+        if self.gpu_id == 0:
+            print(f"Model has {sum(p.numel() for p in self.model.parameters())/1e6}M parameters")
+            print(f"Training data has {self.train_data_len} batches")
+            print(f"There are {self.opt_steps_per_epoch} opt steps per epoch")
 
     def _save_snapshot(self, epoch, train_losses, val_loss):
         snapshot = {
@@ -89,9 +102,9 @@ class Trainer:
         print(f"Resuming training from snapshot at Epoch {self.epochs_run}")
 
     def _get_schedule(self):
-        warumup_steps = len(self.train_data) // grad_accumulation # 1 epoch
+        warumup_steps = self.opt_steps_per_epoch # 1 epoch
         warmup_schedule = torch.optim.lr_scheduler.LinearLR(self.optimizer, start_factor=0.01, total_iters=warumup_steps)
-        steps_till_restarts = epochs_till_restart * len(self.train_data) // grad_accumulation
+        steps_till_restarts = epochs_till_restart * self.opt_steps_per_epoch
         cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=steps_till_restarts, eta_min=0.0001)
         schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps+1])
         return schedule
@@ -112,9 +125,8 @@ class Trainer:
             batch_i += 1
             loss = self._run_batch(src, tgt, batch_i)
             losses = np.append(losses, loss)
-            if batch_i % (grad_accumulation * 100) == 0:
-                print(f"[GPU{self.gpu_id}] Loss since last 100 opt steps (batch {batch_i}; opt step {batch_i / grad_accumulation}): ", losses[-(grad_accumulation * 100):].sum() / (grad_accumulation * 100))
-                print("------------------------------------")
+            if (batch_i % self.steps_till_print == 0) and (self.gpu_id == 0):
+                print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
         return losses
 
     def _run_batch(self, src, tgt, batch_i):
