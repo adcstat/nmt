@@ -96,10 +96,18 @@ class Trainer:
         schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps+1])
         return schedule
 
+    def _reset_momentum(self):
+        for state in self.optimizer.state.values():
+            for key in state:
+                if key in {'exp_avg', 'exp_avg_sq'}:
+                    state[key].zero_()
+
     def _run_epoch(self, epoch):
         self.model.train()
         losses = np.array([])
         self.train_data.sampler.set_epoch(epoch)
+        if ((epoch-2) % epochs_till_restart == 0) and (epoch!=2):
+            self._reset_momentum()
         for batch_i, (src, tgt) in enumerate(self.train_data):
             batch_i += 1
             loss = self._run_batch(src, tgt, batch_i)
