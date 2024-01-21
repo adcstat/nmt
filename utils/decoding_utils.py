@@ -159,12 +159,13 @@ def translate(
     device
 ):
     src = torch.tensor(tokenizer.encode(src_sentence).ids, device=device).unsqueeze(dim=0)
-    tgt_tokens = beam_search_single(
+    tgt_tokens = beam_search_batch(
         model=model,
         src=src,
         beam_width=beam_width,
-        device=device
-    )
+        device=device,
+        max_len=src.shape[1] + 5
+    )[0]
     return tokenizer.decode(tgt_tokens.tolist())
 
 
