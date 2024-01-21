@@ -8,16 +8,16 @@ PAD_IDX = 2
 @torch.no_grad()
 def beam_search_batch(
     model,
-    X,
+    src,
     beam_width,
     device,
     max_len = 20,
     length_norm_exp: float = 0.6
 ):
     model.eval()
-    batch_size = X.shape[0]
-    src_padding_mask = X == PAD_IDX
-    enc = model.encode(X, src_padding_mask)
+    batch_size = src.shape[0]
+    src_padding_mask = src == PAD_IDX
+    enc = model.encode(src, src_padding_mask)
     # initialize decoding seq
     Y = torch.ones(batch_size, 1, device=device).fill_(BOS_IDX).type(torch.long) # (batch_size, 1)
     # get decoding for last last token in Y
@@ -31,9 +31,9 @@ def beam_search_batch(
     Y = Y.repeat((beam_width, 1)) # (batch_size*beam_width, 1)
     Y = torch.cat((Y, next_tokens.flatten().unsqueeze(dim=1)), dim=-1) # (batch_size*beam_width, 2)
     next_probabilities = next_probabilities.flatten().unsqueeze(1).repeat(1, vocabulary_size) # (batch_size*beam_width, tgt_vocab_size)
-    X = X.repeat((beam_width, 1, 1)).transpose(0, 1).flatten(end_dim=1) # (batch_size*beam_width, src_seq_len)
-    src_padding_mask = X == PAD_IDX
-    enc = model.encode(X, src_padding_mask) # (batch_size*beam_width, src_seq_len, d_model)
+    src = src.repeat((beam_width, 1, 1)).transpose(0, 1).flatten(end_dim=1) # (batch_size*beam_width, src_seq_len)
+    src_padding_mask = src == PAD_IDX
+    enc = model.encode(src, src_padding_mask) # (batch_size*beam_width, src_seq_len, d_model)
     completed_mask = torch.zeros(batch_size * beam_width, device=device, dtype=torch.bool)
 
     for _ in range(max_len-1):
