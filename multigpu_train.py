@@ -22,9 +22,7 @@ with open("checkpoints/params.json", "w") as fp:
 PAD_IDX = params["PAD_IDX"]
 vocab_size = params["vocab_size"]
 tokens_per_batch = params["tokens_per_batch"]
-periods = params["periods"]
-epochs_till_restart = params["epochs_till_restart"]
-epochs = periods * epochs_till_restart + 1
+epochs = params["epochs"]
 grad_accumulation = params["grad_accumulation"]
 d_model = params["d_model"]
 n_heads = params["n_heads"]
@@ -87,7 +85,7 @@ class Trainer:
         }
         # save snapshot for reloading
         torch.save(snapshot, self.snapshot_path)
-        # save snapshot fpr checkpoint averaging
+        # save snapshot for checkpoint averaging
         torch.save(snapshot, f"checkpoints/checkpoint_{epoch}.tar")
         print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
         print("********************************************")
@@ -102,25 +100,17 @@ class Trainer:
         print(f"Resuming training from snapshot at Epoch {self.epochs_run}")
 
     def _get_schedule(self):
-        warumup_steps = self.opt_steps_per_epoch # 1 epoch
+        steps = epochs * len(self.train_data) // grad_accumulation
+        warumup_steps = int(0.04 * steps)
         warmup_schedule = torch.optim.lr_scheduler.LinearLR(self.optimizer, start_factor=0.01, total_iters=warumup_steps)
-        steps_till_restarts = epochs_till_restart * self.opt_steps_per_epoch
-        cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=steps_till_restarts, eta_min=0.0001)
-        schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps+1])
+        cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=steps-warumup_steps, eta_min=0.0001)
+        schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps])
         return schedule
-
-    def _reset_momentum(self):
-        for state in self.optimizer.state.values():
-            for key in state:
-                if key in {'exp_avg', 'exp_avg_sq'}:
-                    state[key].zero_()
 
     def _run_epoch(self, epoch):
         self.model.train()
         losses = np.array([])
         self.train_data.sampler.set_epoch(epoch)
-        if ((epoch-2) % epochs_till_restart == 0) and (epoch!=2):
-            self._reset_momentum()
         for batch_i, (src, tgt) in enumerate(self.train_data):
             batch_i += 1
             loss = self._run_batch(src, tgt, batch_i)
