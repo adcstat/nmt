@@ -30,7 +30,7 @@ d_ff = params["d_ff"]
 n_layers = params["n_layers"]
 dropout = params["dropout"]
 
-tokenizer = Tokenizer.from_file("bpe_tokenizer.json")
+tokenizer = Tokenizer.from_file("data/bpe_tokenizer.json")
 
 def ddp_setup():
     dist.init_process_group(backend="nccl")
@@ -182,7 +182,7 @@ class Trainer:
 def main():
     ddp_setup()
     # easily fits into memory
-    with open("wmt14.json", "r") as fp:
+    with open("data/wmt14.json", "r") as fp:
         wmt14 = json.load(fp)
     train_data = get_dataloader(BatchedDataset(wmt14["train"], tokens_per_batch), tokenizer)
     val_data = get_dataloader(BatchedDataset(wmt14["validation"], tokens_per_batch), tokenizer)

@@ -1,3 +1,4 @@
+import os
 import json
 
 from datasets import load_dataset
@@ -47,7 +48,7 @@ def initialize_tokenizer():
 def train_tokenizer(tokenizer, text_list):
     trainer = BpeTrainer(vocab_size=vocab_size, min_frequency=2, special_tokens=special_tokens, show_progress=True)
     tokenizer.train_from_iterator(text_list, trainer)
-    tokenizer.save("bpe_tokenizer.json")
+    tokenizer.save("data/bpe_tokenizer.json")
 
 def process_data(tokenizer, data_dict):
     tokenizer.no_padding()
@@ -85,11 +86,12 @@ def main():
     train_text_list = flatten_data(data_dict["train"])
     tokenizer = initialize_tokenizer()
     print("initialized tokenizer!")
+    os.makedirs("data", exist_ok=True)
     train_tokenizer(tokenizer, train_text_list)
     print("trained tokenizer!")
     processed_data = process_data(tokenizer, data_dict)
     print("processed data!")
-    with open("wmt14.json", "w") as fp:
+    with open("data/wmt14.json", "w") as fp:
         json.dump(processed_data, fp)
     print("saved data!")
 
