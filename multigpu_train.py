@@ -19,7 +19,7 @@ with open("params.json", "r") as fp:
 with open("checkpoints/params.json", "w") as fp:
     json.dump(params, fp)
 
-PAD_IDX = params["PAD_IDX"]
+PAD_IDX = 2
 vocab_size = params["vocab_size"]
 tokens_per_batch = params["tokens_per_batch"]
 epochs = params["epochs"]

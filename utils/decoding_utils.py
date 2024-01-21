@@ -2,13 +2,9 @@ import json
 import torch
 from torchmetrics.functional.text import sacre_bleu_score
 
-with open("params.json", "r") as fp:
-    params = json.load(fp)
-
-BOS_IDX = params["BOS_IDX"]
-EOS_IDX = params["EOS_IDX"]
-PAD_IDX = params["PAD_IDX"]
-
+BOS_IDX = 0
+EOS_IDX = 1
+PAD_IDX = 2
 
 @torch.no_grad()
 def beam_search_batch(
