@@ -1,21 +1,12 @@
-import json
 import numpy as np
-
-from tokenizers import Tokenizer
-
 import torch
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
 
-import sys
-sys.path.append("..")
-
-tokenizer = Tokenizer.from_file("bpe_tokenizer.json")
-
-def get_dataloader(dataset: Dataset):
+def get_dataloader(dataset: Dataset, tokenizer):
     return DataLoader(
         dataset,
         batch_size=None,
-        collate_fn=collate_fn,
+        collate_fn=lambda batch: collate_fn(batch, tokenizer),
         pin_memory=True,
         shuffle=False,
         sampler=DistributedSampler(dataset)
@@ -48,7 +39,7 @@ def batch_data_fn(data, tokens_per_batch):
     return batched_data
 
 # function to collate data samples into batch tensors
-def collate_fn(batch):
+def collate_fn(batch, tokenizer):
     batch_transposed = np.asarray(batch).T
     src_batch, tgt_batch = batch_transposed[0], batch_transposed[1]
     src_batch = tokenizer.encode_batch(src_batch)

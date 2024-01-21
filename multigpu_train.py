@@ -184,8 +184,8 @@ def main():
     # easily fits into memory
     with open("wmt14.json", "r") as fp:
         wmt14 = json.load(fp)
-    train_data = get_dataloader(BatchedDataset(wmt14["train"], tokens_per_batch))
-    val_data = get_dataloader(BatchedDataset(wmt14["validation"], tokens_per_batch))
+    train_data = get_dataloader(BatchedDataset(wmt14["train"], tokens_per_batch), tokenizer)
+    val_data = get_dataloader(BatchedDataset(wmt14["validation"], tokens_per_batch), tokenizer)
     model = tfu.Transformer(
         vocab_size=vocab_size,
         d_model=d_model,
