@@ -5,8 +5,6 @@ temp/
 data/
 checkpoints/
 test.ipynb
-bpe_tokenizer.json
-wmt14.json
 *.pth
 *.tar
 *.zip
