@@ -54,7 +54,7 @@ class Attention(nn.Module):
         # bias correction
         attention_weights_cor = attention_weights_raw / (1-0.5**layer_ind)
         attention_weights = attention_weights_cor.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
-        # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0 
+        # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0 SwiGLUFeedForward
         attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
         attention_weights = self.dropout(attention_weights)
         # perform the weighted aggregation of the values
@@ -82,7 +82,7 @@ class MultiHeadAttention(nn.Module):
         return attention, attention_weights_raw
 
 
-class SwiGLUFeedFoward(nn.Module):
+class SwiGLUFeedForward(nn.Module):
     def __init__(self, d_model: int, d_ff: int, dropout: float = 0.):
         super().__init__()
         self.W = nn.Linear(d_model, d_ff, bias=False)
@@ -99,7 +99,7 @@ class EncoderLayer(nn.Module):
     def __init__(self, n_heads, d_model, d_ff, dropout, masked):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=masked)
-        self.ffwd = SwiGLUFeedFoward(d_model, d_ff, dropout)
+        self.ffwd = SwiGLUFeedForward(d_model, d_ff, dropout)
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
 
@@ -123,7 +123,7 @@ class DecoderLayer(nn.Module):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=True)
         self.cross_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=False)
-        self.ffwd = SwiGLUFeedFoward(d_model, d_ff, dropout)
+        self.ffwd = SwiGLUFeedForward(d_model, d_ff, dropout)
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
         self.ln3 = RMSNorm(d_model)
