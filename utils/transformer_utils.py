@@ -94,12 +94,24 @@ class SwiGLUFeedForward(nn.Module):
     def forward(self, x):
         return self.dropout(self.W_2(self.swish(self.W(x)) * self.V(x)))
 
+class FeedForward(nn.Module):
+    def __init__(self, d_model, d_ff, dropout):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.ReLU(),
+            nn.Linear(d_ff, d_model),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 class EncoderLayer(nn.Module):
     def __init__(self, n_heads, d_model, d_ff, dropout, masked):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=masked)
-        self.ffwd = SwiGLUFeedForward(d_model, d_ff, dropout)
+        self.ffwd = FeedForward(d_model, d_ff, dropout)
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
 
@@ -123,7 +135,7 @@ class DecoderLayer(nn.Module):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=True)
         self.cross_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=False)
-        self.ffwd = SwiGLUFeedForward(d_model, d_ff, dropout)
+        self.ffwd = FeedForward(d_model, d_ff, dropout)
         self.ln1 = RMSNorm(d_model)
         self.ln2 = RMSNorm(d_model)
         self.ln3 = RMSNorm(d_model)
