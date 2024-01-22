@@ -91,7 +91,7 @@ def get_bleu_score(
 
         preds = beam_search_batch(
             model=model,
-            X=src,
+            src=src,
             beam_width=beam_width,
             device=device,
             max_len=src.shape[1] + 5,
