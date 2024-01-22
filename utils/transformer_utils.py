@@ -112,8 +112,8 @@ class EncoderLayer(nn.Module):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=masked)
         self.ffwd = FeedForward(d_model, d_ff, dropout)
-        self.ln1 = RMSNorm(d_model)
-        self.ln2 = RMSNorm(d_model)
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
 
     def forward(self, src, src_padding_mask, prev, layer_ind):
         ln1 = self.ln1(src)
@@ -136,10 +136,10 @@ class DecoderLayer(nn.Module):
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=True)
         self.cross_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=False)
         self.ffwd = FeedForward(d_model, d_ff, dropout)
-        self.ln1 = RMSNorm(d_model)
-        self.ln2 = RMSNorm(d_model)
-        self.ln3 = RMSNorm(d_model)
-        self.ln4 = RMSNorm(d_model)
+        self.ln1 = nn.LayerNorm(d_model)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.ln3 = nn.LayerNorm(d_model)
+        self.ln4 = nn.LayerNorm(d_model)
 
     def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask, prev_sa, prev_ca, layer_ind):
         ln1 = self.ln1(tgt)
