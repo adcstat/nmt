@@ -9,6 +9,7 @@ def collect_losses(checkpoint_path, epochs):
         checkpoint = torch.load(f"{checkpoint_path}/checkpoint_{i}.tar")
         train_losses.append(checkpoint["TRAIN_LOSSES"])
         val_losses.append(checkpoint["VAL_LOSS"])
+        print(f"processed epoch {i}")
     train_losses = np.array(train_losses)
     val_losses = np.array(val_losses)
 
