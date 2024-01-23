@@ -55,6 +55,7 @@ class Attention(nn.Module):
         attention_weights_raw = torch.cat([prev, attention_weights_raw.unsqueeze(0)])
         # weighted average of previous and current attention
         attention_weights_raw = ((self.res_weights / self.res_weights.sum()).view(-1, 1, 1, 1) * attention_weights_raw).sum(dim=0)
+        # -inf - -inf is nan, therefore
         attention_weights_raw = attention_weights_raw.masked_fill(attention_weights_raw.isnan(), float("-inf"))
         attention_weights = attention_weights_raw.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0
