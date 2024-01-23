@@ -2,7 +2,7 @@
     "vocab_size": 32000,
     "max_length": 100,
     "tokens_per_batch": 5000,
-    "epochs": 20,
+    "epochs": 15,
     "grad_accumulation": 20,
     "d_model": 512,
     "n_heads": 8,

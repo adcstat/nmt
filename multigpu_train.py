@@ -103,7 +103,7 @@ class Trainer:
         steps = epochs * self.train_data_len // grad_accumulation
         warumup_steps = int(0.04 * steps)
         warmup_schedule = torch.optim.lr_scheduler.LinearLR(self.optimizer, start_factor=0.01, total_iters=warumup_steps)
-        cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=steps-warumup_steps, eta_min=0.0001)
+        cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=steps-warumup_steps, eta_min=0.0002)
         schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps])
         return schedule
 
