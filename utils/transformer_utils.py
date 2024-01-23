@@ -22,16 +22,17 @@ class PositionalEncoding(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, d_model, d_k, d_v, dropout, masked):
+    def __init__(self, d_model, d_k, d_v, dropout, masked, n_heads):
         super().__init__()
         self.d_k = d_k
         self.query = nn.Linear(d_model, d_k, bias=False)
         self.key = nn.Linear(d_model, d_k, bias=False)
         self.value = nn.Linear(d_model, d_v, bias=False)
+        self.res_weights = torch.nn.Parameter(torch.cat([torch.zeros(n_heads), torch.tensor([1.0])]))
         self.masked = masked
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask, prev_i):
+    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask, prev):
         # source_query of shape (batch_size, seq_len_q, d_model)
         # source_key_value of shape (batch_size, seq_len_kv, d_model)
         # source_query_padding_mask of shape (batch_size, seq_len_q)
@@ -49,8 +50,10 @@ class Attention(nn.Module):
         if self.masked:
             mask = torch.tril(torch.ones(attention_weights_raw.shape[1], attention_weights_raw.shape[1], device=source_query.device))
             attention_weights_raw = attention_weights_raw.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
-        # Realformer residual connections using exp weighted avg with beta=0.5
-        attention_weights_raw = (attention_weights_raw + prev_i) / 2
+        # Realformer residual connections
+        ## combine with previous attentions
+        attention_weights_raw = torch.cat([prev, attention_weights_raw.unsqueeze(0)])
+        attention_weights_raw = ((self.res_weights / self.res_weights.sum()).view(-1, 1, 1, 1) * attention_weights_raw).sum(dim=0)
         attention_weights = attention_weights_raw.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0
         attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
@@ -68,15 +71,15 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         d_k = d_model // n_heads
         d_v = d_k
-        self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, dropout, masked) for _ in range(n_heads)])
+        self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, dropout, masked, n_heads) for _ in range(n_heads)])
         self.proj = nn.Linear(n_heads * d_v, d_model, bias=False)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask, prev):
-        att_outs = [h(source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask, prev[i]) for i, h in enumerate(self.heads)]
+        att_outs = [h(source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask, prev) for h in self.heads]
         attention = torch.cat([out[0] for out in att_outs], dim=-1) # (batch_size, seq_len_q, n_heads*d_v)
         attention = self.dropout(self.proj(attention)) # (batch_size, seq_len_q, d_model)
-        attention_weights_raw = [out[1] for out in att_outs]
+        attention_weights_raw = torch.stack([out[1] for out in att_outs])
         return attention, attention_weights_raw
 
 
@@ -189,15 +192,15 @@ class Transformer(nn.Module):
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
         enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
-        prev = [torch.zeros(src.shape[0], src.shape[1], src.shape[1], device=src.device)] * self.n_heads
+        prev = torch.stack([torch.zeros(src.shape[0], src.shape[1], src.shape[1], device=src.device)] * self.n_heads)
         for layer in self.encoder:
             enc, prev = layer(enc, src_padding_mask, prev)
         return enc
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
         dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
-        prev_sa = [torch.zeros(tgt.shape[0], tgt.shape[1], tgt.shape[1], device=tgt.device)] * self.n_heads
-        prev_ca = [torch.zeros(tgt.shape[0], tgt.shape[1], enc.shape[1], device=tgt.device)] * self.n_heads
+        prev_sa = torch.stack([torch.zeros(tgt.shape[0], tgt.shape[1], tgt.shape[1], device=tgt.device)] * self.n_heads)
+        prev_ca = torch.stack([torch.zeros(tgt.shape[0], tgt.shape[1], enc.shape[1], device=tgt.device)] * self.n_heads)
         for layer in self.decoder:
             dec, prev_sa, prev_ca = layer(dec, enc, tgt_padding_mask, src_padding_mask, prev_sa, prev_ca)
         dec = self.ln_final(dec)
