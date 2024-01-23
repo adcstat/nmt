@@ -137,8 +137,8 @@ class Trainer:
         # Gradient Accumulation
         if batch_i % grad_accumulation == 0:
           # Scales loss and performs backward pass using automatic mixed precision
-            self.schedule.step()
             self.scaler.step(self.optimizer)
+            self.schedule.step()
             self.scaler.update()
             self.optimizer.zero_grad(set_to_none=True)
 
