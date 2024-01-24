@@ -142,7 +142,6 @@ class DecoderLayer(nn.Module):
         self.ln1 = nn.LayerNorm(d_model)
         self.ln2 = nn.LayerNorm(d_model)
         self.ln3 = nn.LayerNorm(d_model)
-        self.ln4 = nn.LayerNorm(d_model)
 
     def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask, prev_sa, prev_ca):
         ln1 = self.ln1(tgt)
@@ -156,13 +155,13 @@ class DecoderLayer(nn.Module):
         sa += tgt
         ca, ca_weights_raw = self.cross_attention(
             source_query=self.ln2(sa),
-            source_key_value=self.ln3(memory),
+            source_key_value=memory,
             source_query_padding_mask=tgt_padding_mask,
             source_key_value_padding_mask=memory_padding_mask,
             prev=prev_ca
         )
         ca += sa
-        out = ca + self.ffwd(self.ln4(ca))
+        out = ca + self.ffwd(self.ln3(ca))
         return out, sa_weights_raw, ca_weights_raw
 
 
@@ -184,6 +183,7 @@ class Transformer(nn.Module):
         self.positional_encoding = PositionalEncoding(d_model)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
+        self.encoder_final_ln = nn.LayerNorm(d_model)
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
         self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
@@ -198,7 +198,7 @@ class Transformer(nn.Module):
         prev = torch.stack([torch.zeros(src.shape[0], src.shape[1], src.shape[1], device=src.device)] * self.n_heads)
         for layer in self.encoder:
             enc, prev = layer(enc, src_padding_mask, prev)
-        return enc
+        return self.encoder_final_ln(enc)
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
         dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
