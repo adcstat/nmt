@@ -244,3 +244,15 @@ class RMSNorm(nn.Module):
 
     def __repr__(self):
         return f"RMSNorm(size={self.size}, p={self.p})"
+
+
+class TransformerScheduler(torch.optim.lr_scheduler._LRScheduler):
+    def __init__(self, optimizer, warmup_steps, max_rate):
+        self.warmup_steps = warmup_steps
+        self.max_rate = max_rate
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        step_num = self._step_count
+        lr = self.max_rate * min((self.warmup_steps / step_num)**0.5, step_num / self.warmup_steps)
+        return [lr for _ in self.optimizer.param_groups]

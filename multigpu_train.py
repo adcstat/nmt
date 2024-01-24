@@ -58,7 +58,11 @@ class Trainer:
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX, label_smoothing=0.1)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001, betas=(0.9, 0.98), eps=1e-9)
         self.scaler = torch.cuda.amp.GradScaler()
-        self.schedule = self._get_schedule()
+        self.schedule = tfu.TransformerScheduler(
+            self.optimizer,
+            warmup_steps=int(0.04 * epochs * self.opt_steps_per_epoch), # 4% of all steps are warmup
+            max_rate=0.001
+        )
 
         self.epochs_run = 0
         self.snapshot_path = "checkpoints/snapshot.tar"
@@ -98,14 +102,6 @@ class Trainer:
         self.schedule.load_state_dict(snapshot["SCHEDULE_STATE"])
         self.epochs_run = snapshot["EPOCHS_RUN"]
         print(f"Resuming training from snapshot at Epoch {self.epochs_run}")
-
-    def _get_schedule(self):
-        steps = epochs * self.train_data_len // grad_accumulation
-        warumup_steps = int(0.04 * steps)
-        warmup_schedule = torch.optim.lr_scheduler.LinearLR(self.optimizer, start_factor=0.01, total_iters=warumup_steps)
-        cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=steps-warumup_steps, eta_min=0.0002)
-        schedule = torch.optim.lr_scheduler.SequentialLR(self.optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps])
-        return schedule
 
     def _run_epoch(self, epoch):
         self.model.train()
