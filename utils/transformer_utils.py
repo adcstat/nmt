@@ -30,7 +30,6 @@ class Attention(nn.Module):
         self.query = nn.Linear(d_model, d_k, bias=False)
         self.key = nn.Linear(d_model, d_k, bias=False)
         self.value = nn.Linear(d_model, d_v, bias=False)
-        self.res_weights = torch.nn.Parameter(torch.cat([torch.zeros(n_heads), torch.tensor([1.0])]))
         self.masked = masked
 
     def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
