@@ -24,7 +24,7 @@ class PositionalEncoding(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, d_model, d_k, d_v, masked, n_heads):
+    def __init__(self, d_model, d_k, d_v, masked):
         super().__init__()
         self.d_k = d_k
         self.query = nn.Linear(d_model, d_k, bias=False)
@@ -66,7 +66,7 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         d_k = d_model // n_heads
         d_v = d_k
-        self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, masked, n_heads) for _ in range(n_heads)])
+        self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, masked) for _ in range(n_heads)])
         self.proj = nn.Linear(n_heads * d_v, d_model, bias=False)
         self.dropout = nn.Dropout(dropout)
 
