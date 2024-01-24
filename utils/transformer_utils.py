@@ -39,7 +39,7 @@ class Attention(nn.Module):
         # output of shape (batch_size, seq_len_q, d_v)
         q = self.query(source_query) # (batch_size, seq_len_q, d_k)
         k = self.key(source_key_value) # (batch_size, seq_len_kv, d_k)
-        # compute attention scores ("affinities")
+        # compute attention scores
         attention_weights_raw = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len_q, d_k) @ (batch_size, d_k, seq_len_kv) -> (batch_size, seq_len_q, seq_len_kv)
         # padding mask
         stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(dim=1).repeat(1, source_key_value.shape[1], 1).transpose(-2, -1)
@@ -118,8 +118,8 @@ class EncoderLayer(nn.Module):
             source_query_padding_mask=src_padding_mask,
             source_key_value_padding_mask=src_padding_mask
         )
-        sa_norm = self.ln1(src + attention)
-        out = self.ln2(sa_norm + self.ffwd(sa_norm))
+        sa_norm = self.ln1(attention + src)
+        out = self.ln2(self.ffwd(sa_norm) + sa_norm)
         return out, attention_weights_raw
 
 
@@ -148,7 +148,7 @@ class DecoderLayer(nn.Module):
             source_key_value_padding_mask=memory_padding_mask,
         )
         ca_norm = self.ln2(ca + sa_norm)
-        out = self.ln3(ca_norm + self.ffwd(ca_norm))
+        out = self.ln3(self.ffwd(ca_norm) + ca_norm)
         return out, sa_weights_raw, ca_weights_raw
 
 
