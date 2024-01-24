@@ -7,7 +7,8 @@ class PositionalEncoding(nn.Module):
     def __init__(
         self,
         d_model: int,
-        maxlen: int = 5000
+        dropout,
+        maxlen: int = 5000,
     ):
         super().__init__()
         den = torch.exp(- torch.arange(0, d_model, 2) * math.log(10000) / d_model) # this equates to 1 / 10000^(2i/d_model) with 2i in torch.arange(0, d_model, 2)
@@ -15,14 +16,15 @@ class PositionalEncoding(nn.Module):
         pos_embedding = torch.zeros((maxlen, d_model))
         pos_embedding[:, 0::2] = torch.sin(pos * den) # this is PE_(pos, 2i)
         pos_embedding[:, 1::2] = torch.cos(pos * den) # this is PE_(pos, 2i+1)
+        self.dropout = nn.Dropout(dropout)
         self.register_buffer('pos_embedding', pos_embedding)
 
     def forward(self, token_embedding: Tensor):
-        return token_embedding + self.pos_embedding[:token_embedding.shape[1]]
+        return self.dropout(token_embedding + self.pos_embedding[:token_embedding.shape[1]])
 
 
 class Attention(nn.Module):
-    def __init__(self, d_model, d_k, d_v, dropout, masked, n_heads):
+    def __init__(self, d_model, d_k, d_v, masked, n_heads):
         super().__init__()
         self.d_k = d_k
         self.query = nn.Linear(d_model, d_k, bias=False)
@@ -30,7 +32,6 @@ class Attention(nn.Module):
         self.value = nn.Linear(d_model, d_v, bias=False)
         self.res_weights = torch.nn.Parameter(torch.cat([torch.zeros(n_heads), torch.tensor([1.0])]))
         self.masked = masked
-        self.dropout = nn.Dropout(dropout)
 
     def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
         # source_query of shape (batch_size, seq_len_q, d_model)
@@ -53,7 +54,6 @@ class Attention(nn.Module):
         attention_weights = attention_weights_raw.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0
         attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
-        attention_weights = self.dropout(attention_weights)
         # perform the weighted aggregation of the values
         v = self.value(source_key_value) # (batch_size, seq_len_kv, d_v)
         attention = attention_weights @ v # (batch_size, seq_len_q, seq_len_kv) @ (batch_size, seq_len_kv, d_v) -> (batch_size, seq_len_q, d_v)
@@ -67,7 +67,7 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         d_k = d_model // n_heads
         d_v = d_k
-        self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, dropout, masked, n_heads) for _ in range(n_heads)])
+        self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, masked, n_heads) for _ in range(n_heads)])
         self.proj = nn.Linear(n_heads * d_v, d_model, bias=False)
         self.dropout = nn.Dropout(dropout)
 
@@ -168,7 +168,7 @@ class Transformer(nn.Module):
         self.d_model = d_model
         self.n_heads = n_heads
         self.tok_emb = nn.Embedding(vocab_size, d_model)
-        self.positional_encoding = PositionalEncoding(d_model)
+        self.positional_encoding = PositionalEncoding(d_model, dropout)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
