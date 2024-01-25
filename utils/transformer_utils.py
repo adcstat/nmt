@@ -39,6 +39,7 @@ class Attention(nn.Module):
         # output of shape (batch_size, seq_len_q, d_v)
         q = self.query(source_query) # (batch_size, seq_len_q, d_k)
         k = self.key(source_key_value) # (batch_size, seq_len_kv, d_k)
+        v = self.value(source_key_value) # (batch_size, seq_len_kv, d_v)
         # compute attention scores
         attention_weights_raw = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len_q, d_k) @ (batch_size, d_k, seq_len_kv) -> (batch_size, seq_len_q, seq_len_kv)
         # padding mask
@@ -50,11 +51,11 @@ class Attention(nn.Module):
         if self.masked:
             mask = torch.tril(torch.ones(attention_weights_raw.shape[1], attention_weights_raw.shape[1], device=source_query.device))
             attention_weights_raw = attention_weights_raw.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
+        # soft max rows of attention_weights_raw
         attention_weights = attention_weights_raw.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0
         attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
         # perform the weighted aggregation of the values
-        v = self.value(source_key_value) # (batch_size, seq_len_kv, d_v)
         attention = attention_weights @ v # (batch_size, seq_len_q, seq_len_kv) @ (batch_size, seq_len_kv, d_v) -> (batch_size, seq_len_q, d_v)
         return attention, attention_weights_raw
 
