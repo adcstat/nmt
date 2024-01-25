@@ -56,7 +56,7 @@ class Trainer:
         self._print_infos()
 
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX, label_smoothing=0.1)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0, betas=(0.9, 0.98))
         self.scaler = torch.cuda.amp.GradScaler()
         self.schedule = tfu.TransformerScheduler(
             self.optimizer,
