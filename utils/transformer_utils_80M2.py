@@ -233,7 +233,7 @@ class RMSNorm(nn.Module):
         return f"RMSNorm(size={self.size}, p={self.p})"
 
 def get_optimizer(parameters):
-    return torch.optim.Adam(parameters, lr=0, betas=(0.9, 0.98))
+    return torch.optim.AdamW(parameters, lr=0.001, betas=(0.9, 0.98), eps=1e-9)
 
 def get_schedule(optimizer, epochs, opt_steps_per_epoch):
     steps = epochs * opt_steps_per_epoch
