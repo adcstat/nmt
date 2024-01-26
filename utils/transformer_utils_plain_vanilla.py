@@ -198,6 +198,8 @@ class Transformer(nn.Module):
 
         return logits
 
+def get_optimizer(parameters):
+    return torch.optim.Adam(parameters, lr=0, betas=(0.9, 0.98))
 
 class TransformerScheduler(torch.optim.lr_scheduler._LRScheduler):
     def __init__(self, optimizer, warmup_steps, max_rate):
