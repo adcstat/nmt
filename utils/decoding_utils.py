@@ -94,7 +94,7 @@ def get_bleu_score(
             src=src,
             beam_width=beam_width,
             device=device,
-            max_len=src.shape[1] + 5,
+            max_len=src.shape[1] + 50,
         )
         preds = tokenizer.decode_batch(preds.tolist())
         preds_all.extend(preds)
