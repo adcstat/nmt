@@ -233,10 +233,10 @@ class RMSNorm(nn.Module):
         return f"RMSNorm(size={self.size}, p={self.p})"
 
 
-    def get_schedule(self, optimizer, epochs, opt_steps_per_epoch):
-        steps = epochs * opt_steps_per_epoch
-        warumup_steps = int(0.04 * steps)
-        warmup_schedule = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.01, total_iters=warumup_steps)
-        cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=steps-warumup_steps, eta_min=0.0001)
-        schedule = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps])
-        return schedule
+def get_schedule(optimizer, epochs, opt_steps_per_epoch):
+    steps = epochs * opt_steps_per_epoch
+    warumup_steps = int(0.04 * steps)
+    warmup_schedule = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.01, total_iters=warumup_steps)
+    cosine_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=steps-warumup_steps, eta_min=0.0001)
+    schedule = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[warmup_schedule, cosine_schedule], milestones=[warumup_steps])
+    return schedule
