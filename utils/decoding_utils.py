@@ -98,9 +98,10 @@ def get_bleu_score(
         )
         preds = tokenizer.decode_batch(preds.tolist())
         preds_all.extend(preds)
+    score = sacre_bleu_score(preds_all, [[tgt_item] for tgt_item in tgt_all], smooth=True)
     if return_preds:
-        return sacre_bleu_score(preds_all, [[tgt_item] for tgt_item in tgt_all]), preds_all
-    return sacre_bleu_score(preds_all, [[tgt_item] for tgt_item in tgt_all])
+        return score, preds_all
+    return score
 
 
 @torch.no_grad()
