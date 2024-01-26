@@ -79,18 +79,6 @@ class MultiHeadAttention(nn.Module):
         return attention, attention_weights_raw
 
 
-class SwiGLUFeedForward(nn.Module):
-    def __init__(self, d_model: int, d_ff: int, dropout: float = 0.):
-        super().__init__()
-        self.W = nn.Linear(d_model, d_ff, bias=False)
-        self.swish = nn.SiLU()
-        self.V = nn.Linear(d_model, d_ff, bias=False)
-        self.W_2 = nn.Linear(d_ff, d_model, bias=False)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x):
-        return self.dropout(self.W_2(self.swish(self.W(x)) * self.V(x)))
-
 class FeedForward(nn.Module):
     def __init__(self, d_model, d_ff, dropout):
         super().__init__()
@@ -209,29 +197,6 @@ class Transformer(nn.Module):
         logits = self.unembedding(dec)
 
         return logits
-
-
-class RMSNorm(nn.Module):
-    def __init__(self, size: int, p: float = None):
-        super().__init__()
-        self.size = size
-        self.p = p
-        self.gamma = torch.nn.Parameter(torch.ones(size))
-
-    def forward(self, x):
-        if x.shape[-1] != self.size:
-            raise ValueError("Last dimension of tensor x must have same size that RMSNorm was initialized with")
-        if self.p:
-            k = int(self.p * self.size)
-            x_red = x[..., :k]
-            rms =  ((x_red**2).sum(-1)/self.size)**0.5
-        else:
-            rms = ((x**2).sum(-1)/self.size)**0.5
-        rms = rms.unsqueeze(-1)
-        return self.gamma * x / rms
-
-    def __repr__(self):
-        return f"RMSNorm(size={self.size}, p={self.p})"
 
 
 class TransformerScheduler(torch.optim.lr_scheduler._LRScheduler):
