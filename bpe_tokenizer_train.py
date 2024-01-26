@@ -10,7 +10,7 @@ from tokenizers.processors import ByteLevel as bl_post, Sequence, TemplateProces
 from tokenizers.decoders import ByteLevel as bl_dec
 
 
-with open("params.json", "r") as fp:
+with open("params/params.json", "r") as fp:
     params = json.load(fp)
 
 BOS_IDX = 0

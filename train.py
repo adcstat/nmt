@@ -13,7 +13,7 @@ from tokenizers import Tokenizer
 from utils.data_utils import get_dataloader, BatchedDataset
 from utils import transformer_utils as tfu
 
-with open("params.json", "r") as fp:
+with open("params/params.json", "r") as fp:
     params = json.load(fp)
 
 with open("checkpoints/params.json", "w") as fp:
