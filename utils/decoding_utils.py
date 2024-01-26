@@ -37,12 +37,12 @@ def beam_search_batch(
     completed_mask = torch.zeros(batch_size * beam_width, device=device, dtype=torch.bool)
 
     for _ in range(max_len-1):
-        dec = model.decode(Y, enc, Y == PAD_IDX, src_padding_mask)[:, -1, :] # (batch_size*beam_width, d_model)
-        next_logits = model.unembedding(dec) # (batch_size*beam_width, tgt_vocab_size)
         # create mask to avoid updating probs for already finished seqs
         completed_mask = (Y[..., -1] == EOS_IDX) | (Y[..., -1] == PAD_IDX)
         if completed_mask.all():
             break
+        dec = model.decode(Y, enc, Y == PAD_IDX, src_padding_mask)[:, -1, :] # (batch_size*beam_width, d_model)
+        next_logits = model.unembedding(dec) # (batch_size*beam_width, tgt_vocab_size)
         # adding log probs instead multiplying probs
         next_probabilities[~completed_mask] += next_logits.log_softmax(-1)[~completed_mask]
         # length normalization
