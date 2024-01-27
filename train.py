@@ -50,7 +50,8 @@ class Trainer:
 
         self.train_data_len = len(self.train_data)
         self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
-        self.steps_till_print = 500
+        self.checkpoints_per_epoch = 5
+        self.start_checkpoint_at_epoch = 15
         self.val_data = val_data
         self.val_data_len = len(self.val_data)
         self._print_infos()
@@ -78,21 +79,30 @@ class Trainer:
             print(f"Training data has {self.train_data_len} batches")
             print(f"There are {self.opt_steps_per_epoch} opt steps per epoch")
 
-    def _save_snapshot(self, epoch, train_losses, val_loss):
+    def _save_snapshot(self, epoch, cp, train_losses, val_losses):
+        os.makedirs("checkpoints/losses", exist_ok=True)
+        with open(f"checkpoints/losses/train_losses_{epoch}_{cp}.json", "w") as fp:
+            json.dump(train_losses, fp)
+        with open(f"checkpoints/losses/val_losses_{epoch}_{cp}.json", "w") as fp:
+            json.dump(val_losses, fp)
         snapshot = {
             "MODEL_STATE": self.model.module.state_dict(),
             "OPTIMIZER_STATE": self.optimizer.state_dict(),
             "SCHEDULE_STATE": self.schedule.state_dict(),
             "EPOCHS_RUN": epoch,
-            "TRAIN_LOSSES": train_losses,
-            "VAL_LOSS": val_loss,
+            "CHECKPOINT": cp,
         }
-        # save snapshot for reloading
-        torch.save(snapshot, self.snapshot_path)
-        # save snapshot for checkpoint averaging
-        torch.save(snapshot, f"checkpoints/checkpoint_{epoch}.tar")
-        print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
-        print("********************************************")
+        # save snapshot every full epoch for reloading
+        if cp == self.checkpoints_per_epoch:
+            torch.save(snapshot, self.snapshot_path)
+            print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
+            print("-----------------------------------------")
+        if epoch >= self.start_checkpoint_at_epoch:
+            # save checkpoint for checkpoint averaging
+            cp_path = f"checkpoints/checkpoint_{epoch}_{cp}.tar"
+            torch.save(snapshot, cp_path)
+            print(f"Epoch {epoch} cp {cp} | Checkpoint saved at {cp_path}")
+            print("********************************************")
 
     def _load_snapshot(self, snapshot_path):
         loc = f"cuda:{self.gpu_id}"
@@ -102,18 +112,6 @@ class Trainer:
         self.schedule.load_state_dict(snapshot["SCHEDULE_STATE"])
         self.epochs_run = snapshot["EPOCHS_RUN"]
         print(f"Resuming training from snapshot at Epoch {self.epochs_run}")
-
-    def _run_epoch(self, epoch):
-        self.model.train()
-        losses = np.array([])
-        self.train_data.sampler.set_epoch(epoch)
-        for batch_i, (src, tgt) in enumerate(self.train_data):
-            batch_i += 1
-            loss = self._run_batch(src, tgt, batch_i)
-            losses = np.append(losses, loss)
-            if (batch_i % self.steps_till_print == 0) and (self.gpu_id == 0):
-                print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
-        return losses
 
     def _run_batch(self, src, tgt, batch_i):
         src = src.to(self.gpu_id)
@@ -161,18 +159,28 @@ class Trainer:
         return losses / self.val_data_len
 
     def train(self):
+        self.model.train()
         for epoch in range(self.epochs_run+1, epochs+1):
+            losses = []
             start_time = timer()
-            train_losses = self._run_epoch(epoch)
-            duration = timer() - start_time
-            val_loss = self._evaluate()
-            print(f"[GPU{self.gpu_id}] epoch duration: {duration} | val_loss: {val_loss}")
-            all_train_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
-            all_val_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
-            dist.gather_object(train_losses, all_train_losses, dst=0)
-            dist.gather_object(val_loss, all_val_losses, dst=0)
-            if self.gpu_id == 0:
-                self._save_snapshot(epoch, all_train_losses, all_val_losses)
+            self.train_data.sampler.set_epoch(epoch)
+            for batch_i, (src, tgt) in enumerate(self.train_data):
+                batch_i += 1
+                losses.append(self._run_batch(src, tgt, batch_i))
+                if batch_i % (self.train_data_len // self.checkpoints_per_epoch) == 0:
+                    cp = batch_i // (self.train_data_len // self.checkpoints_per_epoch)
+                    val_loss = self._evaluate()
+                    self.model.train()
+                    duration = timer() - start_time
+                    print(f"[GPU{self.gpu_id}] epoch {epoch} cp {cp}; duration: {duration}; train_loss {sum(losses) / (self.train_data_len // self.checkpoints_per_epoch)}; val_loss: {val_loss}")
+                    all_train_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
+                    all_val_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
+                    dist.gather_object(losses, all_train_losses, dst=0)
+                    dist.gather_object(val_loss, all_val_losses, dst=0)
+                    if self.gpu_id == 0:
+                        self._save_snapshot(epoch, cp, all_train_losses, all_val_losses)
+                    losses = []
+                    start_time = timer()
 
 
 def main():
