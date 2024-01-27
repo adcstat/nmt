@@ -25,7 +25,7 @@ def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
     parser.add_argument("path", type=str, help="Path to the checkpoint directory")
     args = parser.parse_args()
-    collect_losses(args.path, args.epochs)
+    collect_losses(args.path)
 
 if __name__ == "__main__":
     main()
