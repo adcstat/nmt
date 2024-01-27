@@ -6,7 +6,7 @@ import torch
 def collect_losses(checkpoint_path):
     train_losses = []
     val_losses = []
-    fps = [os.path.join(checkpoint_path, fn) for fn in os.listdir(checkpoint_path)]
+    fps = [os.path.join(checkpoint_path, fn) for fn in os.listdir(checkpoint_path) if fn.endswith(".tar")]
     fps.sort()
     for fp in fps:
         checkpoint = torch.load(fp)
