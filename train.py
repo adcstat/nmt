@@ -162,12 +162,12 @@ class Trainer:
     def train(self):
         self.model.train()
         for epoch in range(self.epochs_run+1, epochs+1):
-            losses = []
+            losses = np.array([])
             start_time = timer()
             self.train_data.sampler.set_epoch(epoch)
             for batch_i, (src, tgt) in enumerate(self.train_data):
                 batch_i += 1
-                losses.append(self._run_batch(src, tgt, batch_i))
+                losses = np.append(losses, self._run_batch(src, tgt, batch_i))
                 if batch_i % (self.train_data_len // self.checkpoints_per_epoch) == 0:
                     cp = batch_i // (self.train_data_len // self.checkpoints_per_epoch)
                     val_loss = self._evaluate()
@@ -180,7 +180,7 @@ class Trainer:
                     dist.gather_object(val_loss, all_val_losses, dst=0)
                     if self.gpu_id == 0:
                         self._save_snapshot(epoch, cp, all_train_losses, all_val_losses)
-                    losses = []
+                    losses = np.array([])
                     start_time = timer()
 
 

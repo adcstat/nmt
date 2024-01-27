@@ -1,15 +1,18 @@
 import argparse
+import os
 import numpy as np
 import torch
 
-def collect_losses(checkpoint_path, epochs):
+def collect_losses(checkpoint_path):
     train_losses = []
     val_losses = []
-    for i in range(1, epochs + 1):
-        checkpoint = torch.load(f"{checkpoint_path}/checkpoint_{i}.tar")
+    fps = [os.path.join(checkpoint_path, fn) for fn in os.listdir(checkpoint_path)]
+    fps.sort()
+    for fp in fps:
+        checkpoint = torch.load(fp)
         train_losses.append(checkpoint["TRAIN_LOSSES"])
         val_losses.append(checkpoint["VAL_LOSS"])
-        print(f"processed epoch {i}")
+        print(f"processed {fp}")
     train_losses = np.array(train_losses)
     val_losses = np.array(val_losses)
 
@@ -21,7 +24,6 @@ def collect_losses(checkpoint_path, epochs):
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
     parser.add_argument("path", type=str, help="Path to the checkpoint directory")
-    parser.add_argument("epochs", type=int, help="Number of checkpoints to process")
     args = parser.parse_args()
     collect_losses(args.path, args.epochs)
 
