@@ -186,10 +186,10 @@ class Trainer:
 def main():
     ddp_setup()
     # easily fits into memory
-    with open("data/wmt14.json", "r") as fp:
-        wmt14 = json.load(fp)
-    train_data = get_dataloader(BatchedDataset(wmt14["train"], tokens_per_batch), tokenizer)
-    val_data = get_dataloader(BatchedDataset(wmt14["validation"], tokens_per_batch), tokenizer)
+    with open("data/wmt16.json", "r") as fp:
+        wmt16 = json.load(fp)
+    train_data = get_dataloader(BatchedDataset(wmt16["train"], tokens_per_batch), tokenizer)
+    val_data = get_dataloader(BatchedDataset(wmt16["validation"], tokens_per_batch), tokenizer)
     model = tfu.Transformer(
         vocab_size=vocab_size,
         d_model=d_model,
