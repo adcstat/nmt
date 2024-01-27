@@ -81,10 +81,11 @@ class Trainer:
 
     def _save_snapshot(self, epoch, cp, train_losses, val_losses):
         os.makedirs("checkpoints/losses", exist_ok=True)
-        with open(f"checkpoints/losses/train_losses_{epoch}_{cp}.npy", "wb") as fp:
-            np.save(fp, train_losses)
-        with open(f"checkpoints/losses/val_losses_{epoch}_{cp}.npy", "wb") as fp:
-            np.save(fp, val_losses)
+        losses = {
+            "TRAIN_LOSSES": train_losses,
+            "VAL_LOSSES": val_losses
+        }
+        torch.save(losses, "checkpoints/losses/losses_{epoch}_{cp}.tar")
         snapshot = {
             "MODEL_STATE": self.model.module.state_dict(),
             "OPTIMIZER_STATE": self.optimizer.state_dict(),
