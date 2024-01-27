@@ -85,7 +85,7 @@ class Trainer:
             "TRAIN_LOSSES": train_losses,
             "VAL_LOSSES": val_losses
         }
-        torch.save(losses, "checkpoints/losses/losses_{epoch}_{cp}.tar")
+        torch.save(losses, f"checkpoints/losses/losses_{epoch}_{cp}.tar")
         snapshot = {
             "MODEL_STATE": self.model.module.state_dict(),
             "OPTIMIZER_STATE": self.optimizer.state_dict(),
