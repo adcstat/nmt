@@ -11,7 +11,7 @@ def collect_losses(checkpoint_path):
     for fp in fps:
         checkpoint = torch.load(fp)
         train_losses.append(checkpoint["TRAIN_LOSSES"])
-        val_losses.append(checkpoint["VAL_LOSS"])
+        val_losses.append(checkpoint["VAL_LOSSES"])
         print(f"processed {fp}")
     train_losses = np.array(train_losses)
     val_losses = np.array(val_losses)
