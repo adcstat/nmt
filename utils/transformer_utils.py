@@ -167,7 +167,7 @@ class Transformer(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
-        self.tok_emb = nn.Embedding(vocab_size, d_model)
+        self.tok_emb = nn.Embedding(vocab_size, d_model, padding_idx=2)
         self.positional_encoding = PositionalEncoding(d_model, dropout)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
