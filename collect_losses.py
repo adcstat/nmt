@@ -20,6 +20,7 @@ def collect_losses(checkpoint_path):
         np.save(fp, train_losses)
     with open(f"{checkpoint_path}/val_losses.npy", "wb") as fp:
         np.save(fp, val_losses)
+    print("saved losses")
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
