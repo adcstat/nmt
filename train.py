@@ -11,7 +11,7 @@ import torch.distributed as dist
 from tokenizers import Tokenizer
 
 from utils.data_utils import get_dataloader, BatchedDataset
-from utils import transformer_utils as tfu
+from utils import decoding_utils, transformer_utils as tfu
 
 with open("params/params.json", "r") as fp:
     params = json.load(fp)
@@ -52,6 +52,7 @@ class Trainer:
         self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
         self.checkpoints_per_epoch = 5
         self.start_checkpoint_at_epoch = 15
+        self.steps_till_print = 500
         self.val_data = val_data
         self.val_data_len = len(self.val_data)
         self._print_infos()
@@ -94,7 +95,7 @@ class Trainer:
             "CHECKPOINT": cp,
         }
         # save snapshot every full epoch for reloading
-        if cp == self.checkpoints_per_epoch:
+        if cp == self.cpe_running:
             torch.save(snapshot, self.snapshot_path)
             print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
             print("-----------------------------------------")
@@ -159,21 +160,44 @@ class Trainer:
 
         return losses / self.val_data_len
 
+    def _test_translate(self):
+        if self.gpu_id == 0:
+            test_sentences = [
+                "Birds fly in the sky.",
+                "The large dog is barking loudly.",
+                "She painted the wall blue yesterday.",
+                "They have not visited the new museum.",
+                "If it snows, we will go skiing tomorrow.",
+                "Before the sun sets, the children play in the park, under the big oak tree.",
+                "The cake, which was baked by my grandmother, was eaten at the party.",
+                "If I were elected president, I would implement major reforms.",
+                "She must finish her report before she can leave, even though she prefers to do it tomorrow.",
+                "Despite the burgeoning apprehensions, the dedicated linguists, meticulously analyzing archaic manuscripts, endeavored to decipher the intricate symbology inherent in the ancient texts."
+            ]
+            for sentence in test_sentences:
+                translation = decoding_utils.translate(tokenizer, self.model.module, sentence, 4, self.gpu_id)
+                print(f"src: {sentence} \ntranslation: {translation}")
+
     def train(self):
+        self._test_translate()
         self.model.train()
         for epoch in range(self.epochs_run+1, epochs+1):
+            self.cpe_running = 1 if epoch < self.start_checkpoint_at_epoch else self.checkpoints_per_epoch
             losses = np.array([])
             start_time = timer()
             self.train_data.sampler.set_epoch(epoch)
             for batch_i, (src, tgt) in enumerate(self.train_data):
                 batch_i += 1
                 losses = np.append(losses, self._run_batch(src, tgt, batch_i))
-                if batch_i % (self.train_data_len // self.checkpoints_per_epoch) == 0:
-                    cp = batch_i // (self.train_data_len // self.checkpoints_per_epoch)
+                if (self.cpe_running == 1) and (batch_i % self.steps_till_print == 0) and (self.gpu_id == 0):
+                    print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
+                if batch_i % (self.train_data_len // self.cpe_running) == 0:
+                    cp = batch_i // (self.train_data_len // self.cpe_running)
                     val_loss = self._evaluate()
+                    self._test_translate()
                     self.model.train()
                     duration = timer() - start_time
-                    print(f"[GPU{self.gpu_id}] epoch {epoch} cp {cp}; duration: {duration}; train_loss {sum(losses) / (self.train_data_len // self.checkpoints_per_epoch)}; val_loss: {val_loss}")
+                    print(f"[GPU{self.gpu_id}] epoch {epoch} cp {cp}; duration: {duration}; train_loss {losses.mean()}; val_loss: {val_loss}")
                     all_train_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
                     all_val_losses = [None for _ in range(self.world_size)] if self.gpu_id == 0 else None
                     dist.gather_object(losses, all_train_losses, dst=0)
