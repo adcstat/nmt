@@ -192,8 +192,9 @@ class Trainer:
             for batch_i, (src, tgt) in enumerate(self.train_data):
                 batch_i += 1
                 loss = self._run_batch(src, tgt, batch_i)
-                self.writer.add_scalar('Training Loss', loss, epoch * self.train_data_len + batch_i)
                 losses = np.append(losses, loss)
+                if self.gpu_id == 0:
+                    self.writer.add_scalar('Training Loss', loss, epoch * self.train_data_len + batch_i)
                 if (self.cpe_running == 1) and (batch_i % self.steps_till_print == 0) and (self.gpu_id == 0):
                     print("lr: ", self.optimizer.param_groups[0]["lr"])
                     print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
