@@ -1,3 +1,5 @@
+import importlib
+import argparse
 import os
 import json
 import numpy as np
@@ -12,26 +14,31 @@ from torch.utils.tensorboard import SummaryWriter
 from tokenizers import Tokenizer
 
 from utils.data_utils import get_dataloader, BatchedDataset
-from utils import decoding_utils, transformer_utils as tfu
-
-with open("params/params.json", "r") as fp:
-    params = json.load(fp)
-
-with open("checkpoints/params.json", "w") as fp:
-    json.dump(params, fp)
-
-PAD_IDX = 2
-vocab_size = params["vocab_size"]
-tokens_per_batch = params["tokens_per_batch"]
-epochs = params["epochs"]
-grad_accumulation = params["grad_accumulation"]
-d_model = params["d_model"]
-n_heads = params["n_heads"]
-d_ff = params["d_ff"]
-n_layers = params["n_layers"]
-dropout = params["dropout"]
+from utils import decoding_utils
 
 tokenizer = Tokenizer.from_file("data/bpe_tokenizer.json")
+PAD_IDX = 2
+
+def set_global_params(config):
+    with open(f"params/params_{config}.json", "r") as fp:
+        params = json.load(fp)
+
+    with open("checkpoints/params.json", "w") as fp:
+        json.dump(params, fp)
+
+    global vocab_size, tokens_per_batch, epochs, grad_accumulation, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
+    vocab_size = params["vocab_size"]
+    tokens_per_batch = params["tokens_per_batch"]
+    epochs = params["epochs"]
+    grad_accumulation = params["grad_accumulation"]
+    d_model = params["d_model"]
+    n_heads = params["n_heads"]
+    d_ff = params["d_ff"]
+    n_layers = params["n_layers"]
+    dropout = params["dropout"]
+    warmup_steps = params["warmup_steps"]
+    max_lr = params["max_lr"]
+
 
 def ddp_setup():
     dist.init_process_group(backend="nccl")
@@ -48,7 +55,7 @@ class Trainer:
         self.world_size = dist.get_world_size()
         self.model = model.to(self.gpu_id)
         self.train_data = train_data
-        self.writer = SummaryWriter('checkpoints/plain_vanilla')
+        self.writer = SummaryWriter('checkpoints/run')
 
         self.train_data_len = len(self.train_data)
         self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
@@ -64,8 +71,8 @@ class Trainer:
         self.scaler = torch.cuda.amp.GradScaler()
         self.schedule = tfu.TransformerScheduler(
             self.optimizer,
-            warmup_steps=4000,
-            max_rate=(self.model.d_model * 4000)**(-0.5)
+            warmup_steps=warmup_steps,
+            max_rate=max_lr
         )
 
         self.epochs_run = 0
@@ -219,6 +226,13 @@ class Trainer:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config", type=str, help="experiment config name")
+    args = parser.parse_args()
+
+    set_global_params(args.config)
+    tfu = importlib.import_module(f"transformer_utils_{args.config}")
+
     ddp_setup()
     # easily fits into memory
     with open("data/wmt14_200.json", "r") as fp:

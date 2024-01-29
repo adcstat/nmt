@@ -155,7 +155,7 @@ class Transformer(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
-        self.tok_emb = nn.Embedding(vocab_size, d_model)
+        self.tok_emb = nn.Embedding(vocab_size, d_model, padding_idx=2)
         self.positional_encoding = PositionalEncoding(d_model, dropout)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
@@ -167,11 +167,11 @@ class Transformer(nn.Module):
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            torch.nn.init.xavier_uniform_(module.weight)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            torch.nn.init.xavier_uniform_(module.weight)
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
         enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
@@ -199,7 +199,7 @@ class Transformer(nn.Module):
         return logits
 
 def get_optimizer(parameters):
-    return torch.optim.Adam(parameters, lr=0, betas=(0.9, 0.98))
+    return torch.optim.Adam(parameters, lr=0, betas=(0.9, 0.98), eps=1e-9)
 
 class TransformerScheduler(torch.optim.lr_scheduler._LRScheduler):
     def __init__(self, optimizer, warmup_steps, max_rate):
