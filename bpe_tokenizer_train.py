@@ -22,7 +22,7 @@ max_length = params["max_length"]
 
 
 def load_data():
-    data_iter = load_dataset("wmt16", 'de-en')
+    data_iter = load_dataset("wmt14", 'de-en')
     data_dict = {split: [[item["translation"]["en"], item["translation"]["de"]] for item in data_iter[split]] for split in ["train", "validation", "test"]}
     return data_dict
 
@@ -91,7 +91,7 @@ def main():
     print("trained tokenizer!")
     processed_data = process_data(tokenizer, data_dict)
     print("processed data!")
-    with open("data/wmt16.json", "w") as fp:
+    with open("data/wmt14_200.json", "w") as fp:
         json.dump(processed_data, fp)
     print("saved data!")
 
