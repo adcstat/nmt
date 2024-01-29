@@ -63,7 +63,7 @@ class Trainer:
         self.schedule = tfu.TransformerScheduler(
             self.optimizer,
             warmup_steps=4000,
-            max_rate=(self.model.module.d_model * 4000)**(-0.5)
+            max_rate=(self.model.d_model * 4000)**(-0.5)
         )
 
         self.epochs_run = 0
