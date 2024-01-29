@@ -175,6 +175,15 @@ class Transformer(nn.Module):
 
         self.unembedding = nn.Linear(d_model, vocab_size)
 
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.xavier_uniform_(module.weight)
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
         enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
@@ -225,7 +234,7 @@ class RMSNorm(nn.Module):
         return f"RMSNorm(size={self.size}, p={self.p})"
 
 def get_optimizer(parameters):
-    return torch.optim.Adam(parameters, lr=0, betas=(0.9, 0.98))
+    return torch.optim.Adam(parameters, lr=0, betas=(0.9, 0.98), eps=1e-9)
 
 class TransformerScheduler(torch.optim.lr_scheduler._LRScheduler):
     def __init__(self, optimizer, warmup_steps, max_rate):
