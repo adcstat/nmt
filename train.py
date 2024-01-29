@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
+from torch.utils.tensorboard import SummaryWriter
 
 from tokenizers import Tokenizer
 
@@ -47,6 +48,7 @@ class Trainer:
         self.world_size = dist.get_world_size()
         self.model = model.to(self.gpu_id)
         self.train_data = train_data
+        self.writer = SummaryWriter('checkpoints/plain_vanilla')
 
         self.train_data_len = len(self.train_data)
         self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
@@ -132,7 +134,7 @@ class Trainer:
         self.scaler.scale(loss).backward()
         # Gradient Accumulation
         if batch_i % grad_accumulation == 0:
-          # Scales loss and performs backward pass using automatic mixed precision
+            # Scales loss and performs backward pass using automatic mixed precision
             self.scaler.step(self.optimizer)
             self.schedule.step()
             self.scaler.update()
@@ -189,7 +191,9 @@ class Trainer:
             self.train_data.sampler.set_epoch(epoch)
             for batch_i, (src, tgt) in enumerate(self.train_data):
                 batch_i += 1
-                losses = np.append(losses, self._run_batch(src, tgt, batch_i))
+                loss = self._run_batch(src, tgt, batch_i)
+                self.writer.add_scalar('Training Loss', loss, epoch * self.train_data_len + batch_i)
+                losses = np.append(losses, loss)
                 if (self.cpe_running == 1) and (batch_i % self.steps_till_print == 0) and (self.gpu_id == 0):
                     print("lr: ", self.optimizer.param_groups[0]["lr"])
                     print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
@@ -208,6 +212,9 @@ class Trainer:
                         self._save_snapshot(epoch, cp, all_train_losses, all_val_losses)
                     losses = np.array([])
                     start_time = timer()
+        self.writer.flush()
+        self.writer.close()
+        
 
 
 def main():
