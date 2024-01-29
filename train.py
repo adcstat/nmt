@@ -179,6 +179,7 @@ class Trainer:
                 print(f"src: {sentence} \ntranslation: {translation}")
 
     def train(self):
+        print("lr: ", self.optimizer.param_groups[0]["lr"])
         self._test_translate()
         self.model.train()
         for epoch in range(self.epochs_run+1, epochs+1):
@@ -190,6 +191,7 @@ class Trainer:
                 batch_i += 1
                 losses = np.append(losses, self._run_batch(src, tgt, batch_i))
                 if (self.cpe_running == 1) and (batch_i % self.steps_till_print == 0) and (self.gpu_id == 0):
+                    print("lr: ", self.optimizer.param_groups[0]["lr"])
                     print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
                 if batch_i % (self.train_data_len // self.cpe_running) == 0:
                     cp = batch_i // (self.train_data_len // self.cpe_running)
