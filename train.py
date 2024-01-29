@@ -61,8 +61,8 @@ class Trainer:
         self.scaler = torch.cuda.amp.GradScaler()
         self.schedule = tfu.TransformerScheduler(
             self.optimizer,
-            warmup_steps=self.opt_steps_per_epoch,
-            max_rate=0.001
+            warmup_steps=4000,
+            max_rate=(self.model.module.d_model * 4000)**(-0.5)
         )
 
         self.epochs_run = 0
