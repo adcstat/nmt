@@ -25,59 +25,55 @@ class PositionalEncoding(nn.Module):
         return self.dropout(token_embedding + self.pos_embedding[:token_embedding.shape[1]])
 
 
-class Attention(nn.Module):
-    def __init__(self, d_model, d_k, d_v, masked):
+class MultiHeadAttention(nn.Module):
+    def __init__(self, n_heads, d_model, dropout, masked):
         super().__init__()
-        self.d_k = d_k
-        self.query = nn.Linear(d_model, d_k, bias=False)
-        self.key = nn.Linear(d_model, d_k, bias=False)
-        self.value = nn.Linear(d_model, d_v, bias=False)
+        self.n_heads = n_heads
+        self.d_k = d_model // n_heads
+
+        self.query = nn.Linear(d_model, d_model, bias=False)
+        self.key = nn.Linear(d_model, d_model, bias=False)
+        self.value = nn.Linear(d_model, d_model, bias=False)
         self.masked = masked
+
+        self.proj = nn.Linear(d_model, d_model, bias=False)
+        self.dropout = nn.Dropout(dropout)
+
+    def split_heads(self, x):
+        # x.shape = (batch size, seq_length, d_model)
+        x = x.view(x.shape[0], x.shape[1], self.n_heads, self.d_k)
+        x = x.permute(0, 2, 1, 3)
+        return x # (batch size, n_heads, seq_length, d_k)
 
     def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
         # source_query of shape (batch_size, seq_len_q, d_model)
         # source_key_value of shape (batch_size, seq_len_kv, d_model)
         # source_query_padding_mask of shape (batch_size, seq_len_q)
         # output of shape (batch_size, seq_len_q, d_v)
-        q = self.query(source_query) # (batch_size, seq_len_q, d_k)
-        k = self.key(source_key_value) # (batch_size, seq_len_kv, d_k)
-        v = self.value(source_key_value) # (batch_size, seq_len_kv, d_v)
+        q = self.split_heads(self.query(source_query))
+        k = self.split_heads(self.key(source_key_value))
+        v = self.split_heads(self.value(source_key_value))
         # compute attention scores
-        attention_weights_raw = q @ k.transpose(-2,-1) * self.d_k**-0.5 # (batch_size, seq_len_q, d_k) @ (batch_size, d_k, seq_len_kv) -> (batch_size, seq_len_q, seq_len_kv)
-        # padding mask
-        stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(dim=1).repeat(1, source_key_value.shape[1], 1).transpose(-2, -1)
+        attention_weights_raw = q @ k.transpose(-2,-1) * self.d_k**-0.5  # (batch_size, n_heads, seq_len_q, d_k) @ (batch_size, n_heads, d_k, seq_len_kv) -> (batch_size, n_heads, seq_len_q, seq_len_kv)
+        # padding masking
+        stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(1).unsqueeze(1).repeat(1, self.n_heads, source_query.shape[1], 1).transpose(-2, -1)
         attention_weights_raw = attention_weights_raw.masked_fill(stretched_source_query_padding_mask, float('-inf'))
-        stretched_source_key_value_padding_mask = source_key_value_padding_mask.unsqueeze(dim=1).repeat(1, source_query.shape[1], 1)
+        stretched_source_key_value_padding_mask = source_key_value_padding_mask.unsqueeze(1).unsqueeze(1).repeat(1, self.n_heads, source_query.shape[1], 1)
         attention_weights_raw = attention_weights_raw.masked_fill(stretched_source_key_value_padding_mask, float('-inf'))
-        # autoregressive masking only makes sense for source_query == source_key_value
+        # causal masking (only applicable for source_query == source_key_value)
         if self.masked:
-            mask = torch.tril(torch.ones(attention_weights_raw.shape[1], attention_weights_raw.shape[1], device=source_query.device))
-            attention_weights_raw = attention_weights_raw.masked_fill(mask == 0, float('-inf')) # (batch_size, seq_len_q, seq_len_kv)
+            mask = torch.tril(torch.ones(source_query.shape[1], source_query.shape[1], device=source_query.device))
+            attention_weights_raw = attention_weights_raw.masked_fill(mask == 0, float('-inf')) # (batch_size, n_heads, seq_len_q, seq_len_kv)
         # soft max rows of attention_weights_raw
-        attention_weights = attention_weights_raw.softmax(-1) # (batch_size, seq_len_q, seq_len_kv)
+        attention_weights = attention_weights_raw.softmax(-1) # (batch_size, n_heads, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0
         attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
         # perform the weighted aggregation of the values
-        attention = attention_weights @ v # (batch_size, seq_len_q, seq_len_kv) @ (batch_size, seq_len_kv, d_v) -> (batch_size, seq_len_q, d_v)
-        return attention, attention_weights_raw
-
-
-class MultiHeadAttention(nn.Module):
-    """ multiple heads of self-attention in parallel """
-
-    def __init__(self, n_heads, d_model, dropout, masked):
-        super().__init__()
-        d_k = d_model // n_heads
-        d_v = d_k
-        self.heads = nn.ModuleList([Attention(d_model, d_k, d_v, masked) for _ in range(n_heads)])
-        self.proj = nn.Linear(n_heads * d_v, d_model, bias=False)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask):
-        att_outs = [h(source_query, source_key_value, source_query_padding_mask, source_key_value_padding_mask) for h in self.heads]
-        attention = torch.cat([out[0] for out in att_outs], dim=-1) # (batch_size, seq_len_q, n_heads*d_v)
+        attention = attention_weights @ v # (batch_size, n_heads, seq_len_q, seq_len_kv) @ (batch_size, n_heads, seq_len_kv, d_v) -> (batch_size, n_heads, seq_len_q, d_v)
+        # flatten along heads
+        attention = attention.permute(0, 2, 1, 3).flatten(-2) # (batch_size, seq_len_q, d_model)
+        # projection
         attention = self.dropout(self.proj(attention)) # (batch_size, seq_len_q, d_model)
-        attention_weights_raw = torch.stack([out[1] for out in att_outs])
         return attention, attention_weights_raw
 
 
