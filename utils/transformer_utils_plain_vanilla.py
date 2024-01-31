@@ -3,6 +3,8 @@ import torch
 from torch import nn
 import math
 
+PADDING_IDX = 2
+
 class PositionalEncoding(nn.Module):
     def __init__(
         self,
@@ -155,7 +157,7 @@ class Transformer(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
-        self.tok_emb = nn.Embedding(vocab_size, d_model, padding_idx=2)
+        self.tok_emb = nn.Embedding(vocab_size, d_model, padding_idx=PADDING_IDX)
         self.positional_encoding = PositionalEncoding(d_model, dropout)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
@@ -169,9 +171,10 @@ class Transformer(nn.Module):
         if isinstance(module, nn.Linear):
             torch.nn.init.xavier_uniform_(module.weight)
             if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+                torch.nn.init.constant_(module.bias, 0.0)
         elif isinstance(module, nn.Embedding):
-            torch.nn.init.xavier_uniform_(module.weight)
+            torch.nn.init.normal_(module.weight, mean=0, std=self.d_model**-0.5)
+            torch.nn.init.constant_(module.weight[PADDING_IDX], 0)
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
         enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
