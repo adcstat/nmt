@@ -162,7 +162,7 @@ class Transformer(nn.Module):
         self.encoder_final_ln = nn.LayerNorm(d_model)
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
-        self.ln_final = nn.LayerNorm(d_model) # final layer norm before unembedding
+        self.decoder_final_ln = nn.LayerNorm(d_model) # final layer norm before unembedding
         self.unembedding = nn.Linear(d_model, vocab_size)
 
         self.apply(self._init_weights)
@@ -186,7 +186,7 @@ class Transformer(nn.Module):
         dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
         for layer in self.decoder:
             dec, _, _ = layer(dec, enc, tgt_padding_mask, src_padding_mask)
-        return self.ln_final(dec)
+        return self.decoder_final_ln(dec)
 
     def forward(
         self,
