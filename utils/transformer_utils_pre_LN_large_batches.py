@@ -161,7 +161,6 @@ class Transformer(nn.Module):
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.encoder_final_ln = nn.LayerNorm(d_model)
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
-
         self.decoder_final_ln = nn.LayerNorm(d_model) # final layer norm before unembedding
         self.unembedding = nn.Linear(d_model, vocab_size)
 
