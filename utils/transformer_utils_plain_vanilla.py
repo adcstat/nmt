@@ -56,7 +56,7 @@ class MultiHeadAttention(nn.Module):
         # compute attention scores
         attention_weights_raw = q @ k.transpose(-2,-1) * self.d_k**-0.5  # (batch_size, n_heads, seq_len_q, d_k) @ (batch_size, n_heads, d_k, seq_len_kv) -> (batch_size, n_heads, seq_len_q, seq_len_kv)
         # padding masking
-        stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(1).unsqueeze(1).repeat(1, self.n_heads, source_query.shape[1], 1).transpose(-2, -1)
+        stretched_source_query_padding_mask = source_query_padding_mask.unsqueeze(1).unsqueeze(1).repeat(1, self.n_heads, source_key_value.shape[1], 1).transpose(-2, -1)
         attention_weights_raw = attention_weights_raw.masked_fill(stretched_source_query_padding_mask, float('-inf'))
         stretched_source_key_value_padding_mask = source_key_value_padding_mask.unsqueeze(1).unsqueeze(1).repeat(1, self.n_heads, source_query.shape[1], 1)
         attention_weights_raw = attention_weights_raw.masked_fill(stretched_source_key_value_padding_mask, float('-inf'))
