@@ -26,11 +26,11 @@ def set_global_params(config):
     with open("checkpoints/params.json", "w") as fp:
         json.dump(params, fp)
 
-    global vocab_size, tokens_per_batch, epochs, grad_accumulation, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
+    global vocab_size, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
     vocab_size = params["vocab_size"]
     tokens_per_batch = params["tokens_per_batch"]
     epochs = params["epochs"]
-    grad_accumulation = params["grad_accumulation"]
+    tokens_per_opt_step = params["tokens_per_opt_step"]
     d_model = params["d_model"]
     n_heads = params["n_heads"]
     d_ff = params["d_ff"]
@@ -58,7 +58,8 @@ class Trainer:
         self.writer = SummaryWriter('checkpoints/run')
 
         self.train_data_len = len(self.train_data)
-        self.opt_steps_per_epoch = self.train_data_len // grad_accumulation
+        self.grad_accumulation = tokens_per_opt_step // (self.world_size * tokens_per_batch)
+        self.opt_steps_per_epoch = self.train_data_len // self.grad_accumulation
         self.checkpoints_per_epoch = 5
         self.start_checkpoint_at_epoch = 15
         self.steps_till_print = 500
@@ -140,7 +141,7 @@ class Trainer:
 
         self.scaler.scale(loss).backward()
         # Gradient Accumulation
-        if batch_i % grad_accumulation == 0:
+        if batch_i % self.grad_accumulation == 0:
             # Scales loss and performs backward pass using automatic mixed precision
             self.scaler.step(self.optimizer)
             self.schedule.step()
@@ -204,7 +205,7 @@ class Trainer:
                     self.writer.add_scalar('Training Loss', loss, epoch * self.train_data_len + batch_i)
                 if (self.cpe_running == 1) and (batch_i % self.steps_till_print == 0) and (self.gpu_id == 0):
                     print("lr: ", self.optimizer.param_groups[0]["lr"])
-                    print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
+                    print(f"Loss since last {self.steps_till_print} steps (batch {batch_i} of {self.train_data_len}; opt step {batch_i // self.grad_accumulation} of {self.opt_steps_per_epoch}): ", losses[-self.steps_till_print:].sum() / self.steps_till_print)
                 if batch_i % (self.train_data_len // self.cpe_running) == 0:
                     cp = batch_i // (self.train_data_len // self.cpe_running)
                     val_loss = self._evaluate()
