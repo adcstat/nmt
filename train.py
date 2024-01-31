@@ -231,7 +231,7 @@ def main():
     args = parser.parse_args()
 
     set_global_params(args.config)
-    tfu = importlib.import_module(f"transformer_utils_{args.config}")
+    tfu = importlib.import_module(f"utils.transformer_utils_{args.config}")
 
     ddp_setup()
     # easily fits into memory
