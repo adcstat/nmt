@@ -10,7 +10,7 @@ def collect_losses(checkpoint_path):
     fps.sort()
     for fp in fps:
         checkpoint = torch.load(fp)
-        train_losses.append(checkpoint["TRAIN_LOSSES"])
+        train_losses.extend(np.array(checkpoint["TRAIN_LOSSES"]).T.mean(-1))
         val_losses.append(checkpoint["VAL_LOSSES"])
         print(f"processed {fp}")
     train_losses = np.array(train_losses)
