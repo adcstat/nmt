@@ -116,8 +116,8 @@ class EncoderLayer(nn.Module):
         super().__init__()
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=masked)
         self.ffwd = SwiGLUFeedForward(d_model, d_ff, dropout)
-        self.ln1 = nn.RMSNorm(d_model)
-        self.ln2 = nn.RMSNorm(d_model)
+        self.ln1 = RMSNorm(d_model)
+        self.ln2 = RMSNorm(d_model)
 
     def forward(self, src, src_padding_mask):
         ln1 = self.ln1(src)
@@ -138,9 +138,9 @@ class DecoderLayer(nn.Module):
         self.self_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=True)
         self.cross_attention = MultiHeadAttention(n_heads, d_model, dropout, masked=False)
         self.ffwd = SwiGLUFeedForward(d_model, d_ff, dropout)
-        self.ln1 = nn.RMSNorm(d_model)
-        self.ln2 = nn.RMSNorm(d_model)
-        self.ln3 = nn.RMSNorm(d_model)
+        self.ln1 = RMSNorm(d_model)
+        self.ln2 = RMSNorm(d_model)
+        self.ln3 = RMSNorm(d_model)
 
     def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask):
         ln1 = self.ln1(tgt)
@@ -180,9 +180,9 @@ class Transformer(nn.Module):
         self.positional_encoding = PositionalEncoding(d_model, dropout)
 
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
-        self.encoder_final_ln = nn.RMSNorm(d_model)
+        self.encoder_final_ln = RMSNorm(d_model)
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
-        self.decoder_final_ln = nn.RMSNorm(d_model) # final layer norm before unembedding
+        self.decoder_final_ln = RMSNorm(d_model) # final layer norm before unembedding
         self.unembedding = nn.Linear(d_model, vocab_size)
 
         self.apply(self._init_weights)
