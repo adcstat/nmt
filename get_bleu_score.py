@@ -64,11 +64,15 @@ def main():
     parser.add_argument("--beam_width", required=True, type=int, help="beam_width")
     args = parser.parse_args()
     tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer.json")
-    model, tokens_per_batch  = load_model(f"checkpoints/{args.config}", args.checkpoint)
-    test_dataloader = load_test_data(args.split, tokens_per_batch, tokenizer)
+    path = f"checkpoints/{args.config}"
+    model, tokens_per_batch  = load_model(path, args.checkpoint)
+    split = args.split
+    test_dataloader = load_test_data(split, tokens_per_batch, tokenizer)
 
-    bleu = decoding_utils.get_bleu_score(tokenizer, model, test_dataloader, args.beam_width, DEVICE)
-    print(bleu.item())
+    bleu = decoding_utils.get_bleu_score(tokenizer, model, test_dataloader, args.beam_width, DEVICE).item()
+    print(bleu)
+    with open(f"{path}/bleu_{split}.json", "w") as fp:
+        json.dump(bleu, fp)
 
 
 if __name__ == "__main__":
