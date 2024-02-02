@@ -2,6 +2,7 @@
 import importlib
 import os
 import json
+import csv
 import argparse
 
 # huggingface
@@ -58,14 +59,19 @@ def load_test_data(split, tokens_per_batch, tokenizer):
     return test_dataloader
 
 def save_bleu(config, split, beam_width, bleu):
-    bleu_file_path = 'checkpoints/bleus.txt'
-    text = f"{config} {split} bw {beam_width}: {bleu}\n"  # The text part
-    # Check if file exists and open in the appropriate mode
-    mode = 'a' if os.path.exists(bleu_file_path) else 'w'
-    with open(bleu_file_path, mode) as file:
-        # Write text and number to the file
-        file.write(text)
-    print(f"bleu written to {bleu_file_path}")
+    bleu_file_path = 'checkpoints/bleus.csv'
+    # Check if file exists to decide if we need to write headers
+    file_exists = os.path.exists(bleu_file_path)
+    
+    with open(bleu_file_path, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        # Write headers if the file is being created for the first time
+        if not file_exists:
+            writer.writerow(["Config", "Split", "Beam Width", "BLEU Score"])
+        # Write the data
+        writer.writerow([config, split, beam_width, bleu])
+    
+    print(f"BLEU score written to {bleu_file_path}")
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
