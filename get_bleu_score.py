@@ -1,4 +1,5 @@
 # python standard
+import os
 import json
 import argparse
 
@@ -56,6 +57,16 @@ def load_test_data(split, tokens_per_batch, tokenizer):
     )
     return test_dataloader
 
+def save_bleu(config, split, bleu):
+    bleu_file_path = 'checkpoints/bleus.txt'
+    text = f"{config} {split}: {bleu}\n"  # The text part
+    # Check if file exists and open in the appropriate mode
+    mode = 'a' if os.path.exists(bleu_file_path) else 'w'
+    with open(bleu_file_path, mode) as file:
+        # Write text and number to the file
+        file.write(text)
+    print(f"bleu written to {bleu_file_path}")
+
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
     parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
@@ -64,6 +75,7 @@ def main():
     parser.add_argument("--beam_width", required=True, type=int, help="beam_width")
     args = parser.parse_args()
     tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer.json")
+    config = args.config
     path = f"checkpoints/{args.config}"
     model, tokens_per_batch  = load_model(path, args.checkpoint)
     split = args.split
@@ -71,9 +83,7 @@ def main():
 
     bleu = decoding_utils.get_bleu_score(tokenizer, model, test_dataloader, args.beam_width, DEVICE).item()
     print(bleu)
-    with open(f"{path}/bleu_{split}.json", "w") as fp:
-        json.dump(bleu, fp)
-
+    save_bleu(config, split, bleu)
 
 if __name__ == "__main__":
     main()
