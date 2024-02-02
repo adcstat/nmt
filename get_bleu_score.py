@@ -70,7 +70,7 @@ def save_bleu(config, split, bleu):
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
     parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
-    parser.add_argument("--checkpoint", required=True, type=int, help="name of model state to use")
+    parser.add_argument("--checkpoint", required=True, type=str, help="name of model state to use")
     parser.add_argument("--split", required=True, type=str, help="which split to use")
     parser.add_argument("--beam_width", required=True, type=int, help="beam_width")
     args = parser.parse_args()
