@@ -21,7 +21,7 @@ def collect_losses(losses_path):
         temp_val_losses = []
         for fp in files:
             checkpoint = torch.load(fp)
-            train_losses.extend(np.array(checkpoint["TRAIN_LOSSES"]).T.mean(-1))
+            train_losses.extend(np.array(checkpoint["TRAIN_LOSSES"]).T.mean(-1)) # average over GPUs
             temp_val_losses.append(np.array(checkpoint["VAL_LOSSES"]).mean(-1))
             print(f"processed {fp}")
         # Average val losses for checkpoints with multiple files
