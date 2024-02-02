@@ -93,7 +93,7 @@ def main():
     print("processed data!")
     with open("data/wmt14_200.json", "w") as fp:
         json.dump(processed_data, fp)
-    with open("data/wmt14_200_valid.json", "w") as fp:
+    with open("data/wmt14_200_validation.json", "w") as fp:
         json.dump(processed_data["validation"], fp)
     with open("data/wmt14_200_test.json", "w") as fp:
         json.dump(processed_data["test"], fp)
