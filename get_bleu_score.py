@@ -37,8 +37,7 @@ def load_model(path, checkpoint):
     )
     model = model.to(DEVICE)
 
-    checkpoint_path = f"{path}/{checkpoint}.tar"
-    checkpoint = torch.load(checkpoint_path)
+    checkpoint = torch.load(f"{path}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 
     return model, tokens_per_batch
@@ -59,13 +58,13 @@ def load_test_data(split, tokens_per_batch, tokenizer):
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
-    parser.add_argument("--path", required=True, type=str, help="Path to the directory")
+    parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
     parser.add_argument("--checkpoint", required=True, type=int, help="name of model state to use")
     parser.add_argument("--split", required=True, type=int, help="which split to use")
     parser.add_argument("--beam_width", required=True, type=int, help="beam_width")
     args = parser.parse_args()
     tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer.json")
-    model, tokens_per_batch  = load_model(args.path, args.checkpoint)
+    model, tokens_per_batch  = load_model(f"checkpoints/{args.config}", args.checkpoint)
     test_dataloader = load_test_data(args.split, tokens_per_batch, tokenizer)
 
     bleu = decoding_utils.get_bleu_score(tokenizer, model, test_dataloader, args.beam_width, DEVICE)
