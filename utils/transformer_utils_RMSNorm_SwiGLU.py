@@ -65,16 +65,16 @@ class MultiHeadAttention(nn.Module):
             mask = torch.tril(torch.ones(source_query.shape[1], source_query.shape[1], device=source_query.device))
             attention_weights_raw = attention_weights_raw.masked_fill(mask == 0, float('-inf')) # (batch_size, n_heads, seq_len_q, seq_len_kv)
         # soft max rows of attention_weights_raw
-        attention_weights = attention_weights_raw.softmax(-1) # (batch_size, n_heads, seq_len_q, seq_len_kv)
+        attention_weights_inter = attention_weights_raw.softmax(-1) # (batch_size, n_heads, seq_len_q, seq_len_kv)
         # since the rows of pad tokens only contain -inf and therefore nan after softmax we replace with 0
-        attention_weights = attention_weights.masked_fill(attention_weights.isnan(), 0)
+        attention_weights = attention_weights_inter.masked_fill(attention_weights_inter.isnan(), 0)
         # perform the weighted aggregation of the values
         attention = attention_weights @ v # (batch_size, n_heads, seq_len_q, seq_len_kv) @ (batch_size, n_heads, seq_len_kv, d_v) -> (batch_size, n_heads, seq_len_q, d_v)
         # flatten along heads
         attention = attention.permute(0, 2, 1, 3).flatten(-2) # (batch_size, seq_len_q, d_model)
         # projection
         attention = self.dropout(self.proj(attention)) # (batch_size, seq_len_q, d_model)
-        return attention, attention_weights_raw
+        return attention, attention_weights_inter
 
 
 class SwiGLUFeedForward(nn.Module):
@@ -121,7 +121,7 @@ class EncoderLayer(nn.Module):
 
     def forward(self, src, src_padding_mask):
         ln1 = self.ln1(src)
-        attention, attention_weights_raw = self.self_attention(
+        attention, attention_weights = self.self_attention(
             source_query=ln1,
             source_key_value=ln1,
             source_query_padding_mask=src_padding_mask,
@@ -129,7 +129,7 @@ class EncoderLayer(nn.Module):
         )
         attention += src
         out = attention + self.ffwd(self.ln2(attention))
-        return out, attention_weights_raw
+        return out, attention_weights
 
 
 class DecoderLayer(nn.Module):
@@ -144,14 +144,14 @@ class DecoderLayer(nn.Module):
 
     def forward(self, tgt, memory, tgt_padding_mask, memory_padding_mask):
         ln1 = self.ln1(tgt)
-        sa, sa_weights_raw = self.self_attention(
+        sa, sa_weights = self.self_attention(
             source_query=ln1,
             source_key_value=ln1,
             source_query_padding_mask=tgt_padding_mask,
             source_key_value_padding_mask=tgt_padding_mask,
         )
         sa += tgt
-        ca, ca_weights_raw = self.cross_attention(
+        ca, ca_weights = self.cross_attention(
             source_query=self.ln2(sa),
             source_key_value=memory,
             source_query_padding_mask=tgt_padding_mask,
@@ -159,7 +159,7 @@ class DecoderLayer(nn.Module):
         )
         ca += sa
         out = ca + self.ffwd(self.ln3(ca))
-        return out, sa_weights_raw, ca_weights_raw
+        return out, sa_weights, ca_weights
 
 
 class Transformer(nn.Module):
@@ -195,6 +195,30 @@ class Transformer(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0, std=self.d_model**-0.5)
             torch.nn.init.constant_(module.weight[PADDING_IDX], 0)
+
+    @torch.no_grad()
+    def get_attention_weights(self, src, tgt, src_padding_mask, tgt_padding_mask):
+        enc_att_weights_all = []
+        enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
+        for layer in self.encoder:
+            enc, enc_att_weights = layer(enc, src_padding_mask)
+            enc_att_weights_all.append(enc_att_weights)
+        enc = self.encoder_final_ln(enc)
+        enc_att_weights_all = torch.stack(enc_att_weights_all) # (n_layers, batch_size, n_heads, seq_len_q, seq_len_kv)
+        enc_att_weights_all = enc_att_weights_all.permute(0, 2, 1, 3, 4) # (n_layers, n_heads, batch_size, seq_len_q, seq_len_kv)
+
+        dec_self_att_weights_all = []
+        enc_dec_weights_all = []
+        dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
+        for layer in self.decoder:
+            dec, dec_self_att_weights, enc_dec_weights = layer(dec, enc, tgt_padding_mask, src_padding_mask)
+            dec_self_att_weights_all.append(dec_self_att_weights)
+            enc_dec_weights_all.append(enc_dec_weights)
+        dec_self_att_weights_all = torch.stack(dec_self_att_weights_all)
+        enc_dec_weights_all = torch.stack(enc_dec_weights_all)
+        dec_self_att_weights_all = dec_self_att_weights_all.permute(0, 2, 1, 3, 4)
+        enc_dec_weights_all = enc_dec_weights_all.permute(0, 2, 1, 3, 4)
+        return enc_att_weights_all, dec_self_att_weights_all, enc_dec_weights_all
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
         enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
