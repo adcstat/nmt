@@ -23,7 +23,11 @@ def set_global_params(config):
     with open(f"params/params_{config}.json", "r") as fp:
         params = json.load(fp)
 
-    with open("checkpoints/params.json", "w") as fp:
+    global checkpoint_dir
+    checkpoint_dir = f"checkpoints/{config}"
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    with open(f"{checkpoint_dir}/params.json", "w") as fp:
         json.dump(params, fp)
 
     global vocab_size, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
@@ -55,7 +59,7 @@ class Trainer:
         self.world_size = dist.get_world_size()
         self.model = model.to(self.gpu_id)
         self.train_data = train_data
-        self.writer = SummaryWriter('checkpoints/run')
+        self.writer = SummaryWriter(f"{checkpoint_dir}/tb")
 
         self.train_data_len = len(self.train_data)
         self.grad_accumulation = tokens_per_opt_step // (self.world_size * tokens_per_batch)
@@ -77,7 +81,7 @@ class Trainer:
         )
 
         self.epochs_run = 0
-        self.snapshot_path = "checkpoints/snapshot.tar"
+        self.snapshot_path = f"{checkpoint_dir}/snapshot.tar"
         if os.path.exists(self.snapshot_path):
             print("Loading snapshot")
             self._load_snapshot(self.snapshot_path)
@@ -91,13 +95,13 @@ class Trainer:
             print(f"There are {self.opt_steps_per_epoch} opt steps per epoch")
 
     def _save_snapshot(self, epoch, cp, train_losses, val_losses):
-        os.makedirs("checkpoints/losses", exist_ok=True)
+        os.makedirs(f"{checkpoint_dir}/losses", exist_ok=True)
         losses = {
             "TRAIN_LOSSES": train_losses,
             "VAL_LOSSES": val_losses
         }
         epoch_str = str(epoch) if epoch >= 10 else f"0{epoch}"
-        torch.save(losses, f"checkpoints/losses/losses_{epoch_str}_{cp}.tar")
+        torch.save(losses, f"{checkpoint_dir}/losses/losses_{epoch_str}_{cp}.tar")
         snapshot = {
             "MODEL_STATE": self.model.module.state_dict(),
             "OPTIMIZER_STATE": self.optimizer.state_dict(),
@@ -112,7 +116,7 @@ class Trainer:
             print("-----------------------------------------")
         if epoch >= self.start_checkpoint_at_epoch:
             # save checkpoint for checkpoint averaging
-            cp_path = f"checkpoints/checkpoint_{epoch}_{cp}.tar"
+            cp_path = f"{checkpoint_dir}/checkpoint_{epoch}_{cp}.tar"
             torch.save(snapshot, cp_path)
             print(f"Epoch {epoch} cp {cp} | Checkpoint saved at {cp_path}")
             print("********************************************")
