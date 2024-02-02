@@ -93,6 +93,10 @@ def main():
     print("processed data!")
     with open("data/wmt14_200.json", "w") as fp:
         json.dump(processed_data, fp)
+    with open("data/wmt14_200_valid.json", "w") as fp:
+        json.dump(processed_data["validation"], fp)
+    with open("data/wmt14_200_test.json", "w") as fp:
+        json.dump(processed_data["test"], fp)
     print("saved data!")
 
 if __name__ == "__main__":
