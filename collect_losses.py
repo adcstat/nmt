@@ -26,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
     parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
     args = parser.parse_args()
-    collect_losses(f"checkpoints/{args.config}")
+    collect_losses(f"checkpoints/{args.config}/losses")
 
 if __name__ == "__main__":
     main()
