@@ -1,4 +1,5 @@
 # python standard
+import importlib
 import os
 import json
 import argparse
@@ -11,7 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 
 # custom
-from utils import decoding_utils, data_utils, transformer_utils as tfu
+from utils import decoding_utils, data_utils
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -46,8 +47,7 @@ def load_model(path, checkpoint):
 def load_test_data(split, tokens_per_batch, tokenizer):
     with open("data/wmt14_200.json", "r") as fp:
         test_data = json.load(fp)
-    test_data = [[src, tgt] for src, tgt, _ in test_data[split]]
-    test_data_batched = data_utils.BatchedDataset(test_data, tokens_per_batch)
+    test_data_batched = data_utils.BatchedDataset(test_data[split], tokens_per_batch)
     test_dataloader = DataLoader(
         test_data_batched,
         batch_size=None,
@@ -57,9 +57,9 @@ def load_test_data(split, tokens_per_batch, tokenizer):
     )
     return test_dataloader
 
-def save_bleu(config, split, bleu):
+def save_bleu(config, split, beam_width, bleu):
     bleu_file_path = 'checkpoints/bleus.txt'
-    text = f"{config} {split}: {bleu}\n"  # The text part
+    text = f"{config} {split} bw {beam_width}: {bleu}\n"  # The text part
     # Check if file exists and open in the appropriate mode
     mode = 'a' if os.path.exists(bleu_file_path) else 'w'
     with open(bleu_file_path, mode) as file:
@@ -74,16 +74,23 @@ def main():
     parser.add_argument("--split", required=True, type=str, help="which split to use")
     parser.add_argument("--beam_width", required=True, type=int, help="beam_width")
     args = parser.parse_args()
-    tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer.json")
+
     config = args.config
-    path = f"checkpoints/{args.config}"
-    model, tokens_per_batch  = load_model(path, args.checkpoint)
+    checkpoint = args.checkpoint
     split = args.split
+    beam_width = args.beam_width
+
+    global tfu
+    tfu = importlib.import_module(f"utils.transformer_utils_{config}")
+    
+    tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer.json")
+    path = f"checkpoints/{config}"
+    model, tokens_per_batch  = load_model(path, checkpoint)
     test_dataloader = load_test_data(split, tokens_per_batch, tokenizer)
 
-    bleu = decoding_utils.get_bleu_score(tokenizer, model, test_dataloader, args.beam_width, DEVICE).item()
+    bleu = decoding_utils.get_bleu_score(tokenizer, model, test_dataloader, beam_width, DEVICE).item()
     print(bleu)
-    save_bleu(config, split, bleu)
+    save_bleu(config, split, beam_width, bleu)
 
 if __name__ == "__main__":
     main()
