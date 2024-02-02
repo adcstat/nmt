@@ -3,10 +3,10 @@ import os
 import numpy as np
 import torch
 
-def collect_losses(checkpoint_path):
+def collect_losses(losses_path):
     train_losses = []
     val_losses = []
-    fps = [os.path.join(checkpoint_path, fn) for fn in os.listdir(checkpoint_path) if fn.endswith(".tar")]
+    fps = [os.path.join(losses_path, fn) for fn in os.listdir(losses_path) if fn.endswith(".tar")]
     fps.sort()
     for fp in fps:
         checkpoint = torch.load(fp)
@@ -16,9 +16,9 @@ def collect_losses(checkpoint_path):
     train_losses = np.array(train_losses)
     val_losses = np.array(val_losses)
 
-    with open(f"{checkpoint_path}/train_losses.npy", "wb") as fp:
+    with open(f"{losses_path}/train_losses.npy", "wb") as fp:
         np.save(fp, train_losses)
-    with open(f"{checkpoint_path}/val_losses.npy", "wb") as fp:
+    with open(f"{losses_path}/val_losses.npy", "wb") as fp:
         np.save(fp, val_losses)
     print("saved losses")
 
