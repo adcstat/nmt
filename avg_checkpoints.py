@@ -30,7 +30,7 @@ def average_checkpoints(cp_dir_path, last_n):
     for key in averaged_weights.keys():
         averaged_weights[key] /= len(cp_paths)
     
-    torch.save(averaged_weights, f"{cp_dir_path}/averaged_weights_last_{last_n}.tar")
+    torch.save({"MODEL_STATE": averaged_weights}, f"{cp_dir_path}/averaged_weights_last_{last_n}.tar")
     print("saved averaged checkpoint")
 
 
