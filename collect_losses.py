@@ -22,7 +22,7 @@ def collect_losses(losses_path):
         for fp in files:
             checkpoint = torch.load(fp)
             train_losses.extend(np.array(checkpoint["TRAIN_LOSSES"]).T.mean(-1))
-            temp_val_losses.append(checkpoint["VAL_LOSSES"])
+            temp_val_losses.append(np.array(checkpoint["VAL_LOSSES"]).mean(-1))
             print(f"processed {fp}")
         # Average val losses for checkpoints with multiple files
         if len(temp_val_losses) > 1:
