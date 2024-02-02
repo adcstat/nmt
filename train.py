@@ -229,7 +229,7 @@ class Trainer:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("config", type=str, help="experiment config name")
+    parser.add_argument("--config", required=True, type=str, help="experiment config name")
     args = parser.parse_args()
 
     set_global_params(args.config)

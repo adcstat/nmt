@@ -36,8 +36,8 @@ def average_checkpoints(cp_dir_path, last_n):
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
-    parser.add_argument("path", type=str, help="Path to the checkpoint directory")
-    parser.add_argument("last_n", type=int, help="How many of the last checkpoints to average over")
+    parser.add_argument("--path", required=True, type=str, help="Path to the checkpoint directory")
+    parser.add_argument("--last_n", required=True, type=int, help="How many of the last checkpoints to average over")
     args = parser.parse_args()
     average_checkpoints(args.path, args.last_n)
 
