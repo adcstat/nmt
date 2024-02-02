@@ -46,9 +46,9 @@ def load_model(path, checkpoint):
     return model, tokens_per_batch
 
 def load_test_data(split, tokens_per_batch, tokenizer):
-    with open("data/wmt14_200.json", "r") as fp:
+    with open(f"data/wmt14_200_{split}.json", "r") as fp:
         test_data = json.load(fp)
-    test_data_batched = data_utils.BatchedDataset(test_data[split], tokens_per_batch)
+    test_data_batched = data_utils.BatchedDataset(test_data, tokens_per_batch)
     test_dataloader = DataLoader(
         test_data_batched,
         batch_size=None,
