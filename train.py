@@ -245,7 +245,7 @@ def main():
     with open("data/wmt14_200.json", "r") as fp:
         wmt14_200 = json.load(fp)
     train_data = get_dataloader(BatchedDataset(wmt14_200["train"], tokens_per_batch), tokenizer)
-    val_data = get_dataloader(BatchedDataset(wmt14_200["validation"], tokens_per_batch), tokenizer)
+    val_data = get_dataloader(BatchedDataset(wmt14_200["validation"], tokens_per_batch // 2), tokenizer)
     model = tfu.Transformer(
         vocab_size=vocab_size,
         d_model=d_model,
