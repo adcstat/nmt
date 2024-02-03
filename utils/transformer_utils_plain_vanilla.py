@@ -159,8 +159,6 @@ class Transformer(nn.Module):
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
-        self.unembedding = nn.Linear(d_model, vocab_size)
-
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -207,6 +205,10 @@ class Transformer(nn.Module):
         for layer in self.decoder:
             dec, _, _ = layer(dec, enc, tgt_padding_mask, src_padding_mask)
         return dec
+
+    def unembedding(self, dec):
+        logits = dec @ self.tok_emb.weight.T
+        return logits
 
     def forward(
         self,
