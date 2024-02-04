@@ -1,3 +1,4 @@
+import argparse
 import os
 import json
 
@@ -10,16 +11,16 @@ from tokenizers.processors import ByteLevel as bl_post, Sequence, TemplateProces
 from tokenizers.decoders import ByteLevel as bl_dec
 
 
-with open("params/params.json", "r") as fp:
-    params = json.load(fp)
-
 BOS_IDX = 0
 EOS_IDX = 1
 PAD_IDX = 2
 special_tokens = ["<bos>", "<eos>", "<pad>"]
-vocab_size = params["vocab_size"]
-max_length = params["max_length"]
 
+
+def get_params(config):
+    with open(f"params/params_{config}.json", "r") as fp:
+        params = json.load(fp)
+    return params["vocab_size"], params["max_length"]
 
 def load_data():
     data_iter = load_dataset("wmt14", 'de-en')
@@ -45,12 +46,12 @@ def initialize_tokenizer():
     tokenizer.enable_padding(pad_id=PAD_IDX, pad_token=special_tokens[PAD_IDX])
     return tokenizer
 
-def train_tokenizer(tokenizer, text_list):
+def train_tokenizer(tokenizer, text_list, vocab_size):
     trainer = BpeTrainer(vocab_size=vocab_size, min_frequency=2, special_tokens=special_tokens, show_progress=True)
     tokenizer.train_from_iterator(text_list, trainer)
-    tokenizer.save("data/bpe_tokenizer.json")
+    tokenizer.save(f"data/bpe_tokenizer_{vocab_size}.json")
 
-def process_data(tokenizer, data_dict):
+def process_data(tokenizer, data_dict, max_length):
     tokenizer.no_padding()
     processed_data = {}
     for split in data_dict:
@@ -81,21 +82,25 @@ def process_data(tokenizer, data_dict):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
+    args = parser.parse_args()
+    vocab_size, max_length = get_params(args.config)
     data_dict = load_data()
     print("loaded data!")
     train_text_list = flatten_data(data_dict["train"])
     tokenizer = initialize_tokenizer()
     print("initialized tokenizer!")
     os.makedirs("data", exist_ok=True)
-    train_tokenizer(tokenizer, train_text_list)
+    train_tokenizer(tokenizer, train_text_list, vocab_size)
     print("trained tokenizer!")
-    processed_data = process_data(tokenizer, data_dict)
+    processed_data = process_data(tokenizer, data_dict, max_length)
     print("processed data!")
-    with open("data/wmt14_200.json", "w") as fp:
+    with open(f"data/wmt14_{vocab_size}_{max_length}.json", "w") as fp:
         json.dump(processed_data, fp)
-    with open("data/wmt14_200_validation.json", "w") as fp:
+    with open(f"data/wmt14_{vocab_size}_{max_length}_validation.json", "w") as fp:
         json.dump(processed_data["validation"], fp)
-    with open("data/wmt14_200_test.json", "w") as fp:
+    with open(f"data/wmt14_{vocab_size}_{max_length}_test.json", "w") as fp:
         json.dump(processed_data["test"], fp)
     print("saved data!")
 

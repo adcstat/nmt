@@ -16,7 +16,6 @@ from tokenizers import Tokenizer
 from utils.data_utils import get_dataloader, BatchedDataset
 from utils import decoding_utils
 
-tokenizer = Tokenizer.from_file("data/bpe_tokenizer.json")
 PAD_IDX = 2
 
 def set_global_params(config):
@@ -30,8 +29,10 @@ def set_global_params(config):
     with open(f"{checkpoint_dir}/params.json", "w") as fp:
         json.dump(params, fp)
 
-    global vocab_size, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
+    global vocab_size, tokenizer, max_length, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
     vocab_size = params["vocab_size"]
+    tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer_{vocab_size}.json")
+    max_length = params["max_length"]
     tokens_per_batch = params["tokens_per_batch"]
     epochs = params["epochs"]
     tokens_per_opt_step = params["tokens_per_opt_step"]
@@ -42,7 +43,6 @@ def set_global_params(config):
     dropout = params["dropout"]
     warmup_steps = params["warmup_steps"]
     max_lr = params["max_lr"]
-
 
 def ddp_setup():
     dist.init_process_group(backend="nccl")
@@ -242,10 +242,10 @@ def main():
 
     ddp_setup()
     # easily fits into memory
-    with open("data/wmt14_200.json", "r") as fp:
-        wmt14_200 = json.load(fp)
-    train_data = get_dataloader(BatchedDataset(wmt14_200["train"], tokens_per_batch), tokenizer)
-    val_data = get_dataloader(BatchedDataset(wmt14_200["validation"], tokens_per_batch // 2), tokenizer)
+    with open(f"data/wmt14_{vocab_size}_{max_length}.json", "r") as fp:
+        wmt14 = json.load(fp)
+    train_data = get_dataloader(BatchedDataset(wmt14["train"], tokens_per_batch), tokenizer)
+    val_data = get_dataloader(BatchedDataset(wmt14["validation"], tokens_per_batch // 2), tokenizer)
     model = tfu.Transformer(
         vocab_size=vocab_size,
         d_model=d_model,
