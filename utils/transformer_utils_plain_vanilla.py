@@ -159,16 +159,9 @@ class Transformer(nn.Module):
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            torch.nn.init.xavier_uniform_(module.weight)
-            if module.bias is not None:
-                torch.nn.init.constant_(module.bias, 0.0)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0, std=self.d_model**-0.5)
-            torch.nn.init.constant_(module.weight[PADDING_IDX], 0)
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p, gain=0.1)
 
     @torch.no_grad()
     def get_attention_weights(self, src, tgt, src_padding_mask, tgt_padding_mask):
