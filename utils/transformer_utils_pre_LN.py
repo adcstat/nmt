@@ -163,21 +163,14 @@ class Transformer(nn.Module):
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout) for _ in range(n_decoder_layers)])
         self.decoder_final_ln = nn.LayerNorm(d_model) # final layer norm before unembedding
 
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            torch.nn.init.xavier_uniform_(module.weight)
-            if module.bias is not None:
-                torch.nn.init.constant_(module.bias, 0.0)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0, std=self.d_model**-0.5)
-            torch.nn.init.constant_(module.weight[PADDING_IDX], 0)
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
 
     @torch.no_grad()
     def get_attention_weights(self, src, tgt, src_padding_mask, tgt_padding_mask):
         enc_att_weights_all = []
-        enc = self.positional_encoding(self.tok_emb(src.long()))
+        enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
         for layer in self.encoder:
             enc, enc_att_weights = layer(enc, src_padding_mask)
             enc_att_weights_all.append(enc_att_weights)
@@ -187,7 +180,7 @@ class Transformer(nn.Module):
 
         dec_self_att_weights_all = []
         enc_dec_weights_all = []
-        dec = self.positional_encoding(self.tok_emb(tgt.long()))
+        dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
         for layer in self.decoder:
             dec, dec_self_att_weights, enc_dec_weights = layer(dec, enc, tgt_padding_mask, src_padding_mask)
             dec_self_att_weights_all.append(dec_self_att_weights)
@@ -199,13 +192,13 @@ class Transformer(nn.Module):
         return enc_att_weights_all, dec_self_att_weights_all, enc_dec_weights_all
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
-        enc = self.positional_encoding(self.tok_emb(src.long()))
+        enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
         for layer in self.encoder:
             enc, _ = layer(enc, src_padding_mask)
         return self.encoder_final_ln(enc)
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
-        dec = self.positional_encoding(self.tok_emb(tgt.long()))
+        dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
         for layer in self.decoder:
             dec, _, _ = layer(dec, enc, tgt_padding_mask, src_padding_mask)
         return self.decoder_final_ln(dec)
