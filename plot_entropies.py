@@ -20,13 +20,11 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PAD_IDX = 2
 
-def load_model_and_data(param_config, model_config, checkpoint):
+def load_model_and_data(vocab_size, max_length, param_config, model_config, checkpoint):
     with open(f"params/params_{param_config}", "r") as fp:
         params = json.load(fp)
 
     tokens_per_batch = params["tokens_per_batch"]
-    vocab_size = params["vocab_size"]
-    max_length = params["max_length"]
     tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer_{vocab_size}.json")
     d_model = params["d_model"]
     n_heads = params["n_heads"]
@@ -46,7 +44,7 @@ def load_model_and_data(param_config, model_config, checkpoint):
     model = model.to(DEVICE)
 
     global checkpoint_dir
-    checkpoint_dir = f"checkpoints/{model_config}/{param_config}"
+    checkpoint_dir = f"checkpoints/tok_{vocab_size}_{max_length}/{model_config}/{param_config}"
     checkpoint = torch.load(f"{checkpoint_dir}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 
@@ -144,11 +142,15 @@ def plot_entropy(entropy_tensor, lower_quantile, upper_quantile):
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
+    parser.add_argument("--vocab_size", required=True, type=str, help="size of vocabulary")
+    parser.add_argument("--max_length", required=True, type=str, help="maximum token count of sequences in data")
     parser.add_argument("--param_config", required=True, type=str, help="param config of experiment to use")
     parser.add_argument("--model_config", required=True, type=str, help="model config of experiment to use")
     parser.add_argument("--checkpoint", required=True, type=str, help="name of model state to use")
     args = parser.parse_args()
 
+    vocab_size = args.vocab_size
+    max_length = args.max_length
     param_config = args.param_config
     model_config = args.model_config
     checkpoint = args.checkpoint
@@ -156,7 +158,7 @@ def main():
     global tfu
     tfu = importlib.import_module(f"utils.transformer_utils_{model_config}")
     
-    model, test_dataloader = load_model_and_data(param_config, model_config, checkpoint)
+    model, test_dataloader = load_model_and_data(vocab_size, max_length, param_config, model_config, checkpoint)
     print("loaded model and data")
     # get attention weights
     enc_attn_batch_list, dec_self_batch_list, enc_dec_batch_list = gather_attn_weights(model, test_dataloader)

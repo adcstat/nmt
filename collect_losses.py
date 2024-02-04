@@ -42,9 +42,9 @@ def collect_losses(losses_path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
+    parser.add_argument("--path", required=True, type=str)
     args = parser.parse_args()
-    collect_losses(f"checkpoints/{args.config}/losses")
+    collect_losses(args.path)
 
 if __name__ == "__main__":
     main()

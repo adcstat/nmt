@@ -22,8 +22,6 @@ def load_model_and_data(param_config, model_config, checkpoint, split):
         params = json.load(fp)
 
     tokens_per_batch = params["tokens_per_batch"]
-    vocab_size = params["vocab_size"]
-    max_length = params["max_length"]
     tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer_{vocab_size}.json")
     d_model = params["d_model"]
     n_heads = params["n_heads"]
@@ -42,7 +40,7 @@ def load_model_and_data(param_config, model_config, checkpoint, split):
     )
     model = model.to(DEVICE)
 
-    checkpoint_dir = f"checkpoints/{model_config}/{param_config}"
+    checkpoint_dir = f"checkpoints/tok_{vocab_size}_{max_length}/{model_config}/{param_config}"
     checkpoint = torch.load(f"{checkpoint_dir}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 
@@ -71,12 +69,14 @@ def save_bleu(param_config, model_config, split, beam_width, bleu):
         if not file_exists:
             writer.writerow(["Config", "Split", "Beam Width", "BLEU Score"])
         # Write the data
-        writer.writerow([model_config, param_config, split, beam_width, bleu])
+        writer.writerow([vocab_size, max_length, model_config, param_config, split, beam_width, bleu])
     
     print(f"BLEU score written to {bleu_file_path}")
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
+    parser.add_argument("--vocab_size", required=True, type=str, help="size of vocabulary")
+    parser.add_argument("--max_length", required=True, type=str, help="maximum token count of sequences in data")
     parser.add_argument("--param_config", required=True, type=str, help="param config of experiment to use")
     parser.add_argument("--model_config", required=True, type=str, help="model config of experiment to use")
     parser.add_argument("--checkpoint", required=True, type=str, help="name of model state to use")
@@ -90,7 +90,9 @@ def main():
     split = args.split
     beam_width = args.beam_width
 
-    global tfu
+    global vocab_size, max_length, tfu
+    vocab_size = args.vocab_size
+    max_length = args.max_length
     tfu = importlib.import_module(f"utils.transformer_utils_{model_config}")
 
     model, tokenizer, test_dataloader = load_model_and_data(param_config, model_config, checkpoint, split)

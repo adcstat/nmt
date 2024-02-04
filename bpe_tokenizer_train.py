@@ -16,12 +16,6 @@ EOS_IDX = 1
 PAD_IDX = 2
 special_tokens = ["<bos>", "<eos>", "<pad>"]
 
-
-def get_params(config):
-    with open(f"params/params_{config}.json", "r") as fp:
-        params = json.load(fp)
-    return params["vocab_size"], params["max_length"]
-
 def load_data():
     data_iter = load_dataset("wmt14", 'de-en')
     data_dict = {split: [[item["translation"]["en"], item["translation"]["de"]] for item in data_iter[split]] for split in ["train", "validation", "test"]}
@@ -83,9 +77,11 @@ def process_data(tokenizer, data_dict, max_length):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
+    parser.add_argument("--vocab_size", required=True, type=str, help="size of vocabulary")
+    parser.add_argument("--max_length", required=True, type=str, help="maximum token count of sequences in data")
     args = parser.parse_args()
-    vocab_size, max_length = get_params(args.config)
+    vocab_size = args.vocab_size
+    max_length = args.max_length
     data_dict = load_data()
     print("loaded data!")
     train_text_list = flatten_data(data_dict["train"])

@@ -23,13 +23,11 @@ def set_global_params(param_config, model_config):
         params = json.load(fp)
 
     global checkpoint_dir
-    checkpoint_dir = f"checkpoints/{model_config}/{param_config}"
+    checkpoint_dir = f"checkpoints/tok_{vocab_size}_{max_length}/{model_config}/{param_config}"
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    global vocab_size, tokenizer, max_length, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
-    vocab_size = params["vocab_size"]
+    global tokenizer, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
     tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer_{vocab_size}.json")
-    max_length = params["max_length"]
     tokens_per_batch = params["tokens_per_batch"]
     epochs = params["epochs"]
     tokens_per_opt_step = params["tokens_per_opt_step"]
@@ -230,14 +228,18 @@ class Trainer:
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--vocab_size", required=True, type=str, help="size of vocabulary")
+    parser.add_argument("--max_length", required=True, type=str, help="maximum token count of sequences in data")
     parser.add_argument("--param_config", required=True, type=str, help="param config of experiment to use")
     parser.add_argument("--model_config", required=True, type=str, help="model config of experiment to use")
     args = parser.parse_args()
 
-    set_global_params(args.param_config, args.model_config)
-    global tfu
+    global vocab_size, max_length, tfu
+    vocab_size = args.vocab_size
+    max_length = args.max_length
     tfu = importlib.import_module(f"utils.transformer_utils_{args.model_config}")
 
+    set_global_params(args.param_config, args.model_config)
     ddp_setup()
     # easily fits into memory
     with open(f"data/wmt14_{vocab_size}_{max_length}.json", "r") as fp:

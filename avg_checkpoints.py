@@ -36,10 +36,10 @@ def average_checkpoints(cp_dir_path, last_n):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
+    parser.add_argument("--path", required=True, type=str)
     parser.add_argument("--last_n", required=True, type=int, help="How many of the last checkpoints to average over")
     args = parser.parse_args()
-    average_checkpoints(f"checkpoints/{args.config}", args.last_n)
+    average_checkpoints(args.path, args.last_n)
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,4 @@
 {
-    "vocab_size": 32000,
-    "max_length": 200,
     "tokens_per_batch": 4000,
     "epochs": 50,
     "tokens_per_opt_step": 400000,
