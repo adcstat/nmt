@@ -17,8 +17,8 @@ from utils import decoding_utils, data_utils
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-def load_model_and_data(path, checkpoint, split):
-    with open(f"{path}/params.json", "r") as fp:
+def load_model_and_data(param_config, model_config, checkpoint, split):
+    with open(f"params/params_{param_config}", "r") as fp:
         params = json.load(fp)
 
     tokens_per_batch = params["tokens_per_batch"]
@@ -42,7 +42,8 @@ def load_model_and_data(path, checkpoint, split):
     )
     model = model.to(DEVICE)
 
-    checkpoint = torch.load(f"{path}/{checkpoint}.tar")
+    checkpoint_dir = f"checkpoints/{model_config}/{param_config}"
+    checkpoint = torch.load(f"{checkpoint_dir}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 
     with open(f"data/wmt14_{vocab_size}_{max_length}_{split}.json", "r") as fp:
@@ -59,7 +60,7 @@ def load_model_and_data(path, checkpoint, split):
     return model, tokenizer, test_dataloader
 
 
-def save_bleu(config, split, beam_width, bleu):
+def save_bleu(param_config, model_config, split, beam_width, bleu):
     bleu_file_path = 'checkpoints/bleus.csv'
     # Check if file exists to decide if we need to write headers
     file_exists = os.path.exists(bleu_file_path)
@@ -70,32 +71,33 @@ def save_bleu(config, split, beam_width, bleu):
         if not file_exists:
             writer.writerow(["Config", "Split", "Beam Width", "BLEU Score"])
         # Write the data
-        writer.writerow([config, split, beam_width, bleu])
+        writer.writerow([model_config, param_config, split, beam_width, bleu])
     
     print(f"BLEU score written to {bleu_file_path}")
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
-    parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
+    parser.add_argument("--param_config", required=True, type=str, help="param config of experiment to use")
+    parser.add_argument("--model_config", required=True, type=str, help="model config of experiment to use")
     parser.add_argument("--checkpoint", required=True, type=str, help="name of model state to use")
     parser.add_argument("--split", required=True, type=str, help="which split to use")
     parser.add_argument("--beam_width", required=True, type=int, help="beam_width")
     args = parser.parse_args()
 
-    config = args.config
+    param_config = args.param_config
+    model_config = args.model_config
     checkpoint = args.checkpoint
     split = args.split
     beam_width = args.beam_width
 
     global tfu
-    tfu = importlib.import_module(f"utils.transformer_utils_{config}")
-    
-    path = f"checkpoints/{config}"
-    model, tokenizer, test_dataloader  = load_model_and_data(path, checkpoint, split)
+    tfu = importlib.import_module(f"utils.transformer_utils_{model_config}")
+
+    model, tokenizer, test_dataloader = load_model_and_data(param_config, model_config, checkpoint, split)
 
     bleu = decoding_utils.get_bleu_score(tokenizer, model, test_dataloader, beam_width, DEVICE).item()
     print(bleu)
-    save_bleu(config, split, beam_width, bleu)
+    save_bleu(param_config, model_config, split, beam_width, bleu)
 
 if __name__ == "__main__":
     main()

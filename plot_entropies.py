@@ -20,8 +20,8 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PAD_IDX = 2
 
-def load_model_and_data(path, checkpoint):
-    with open(f"{path}/params.json", "r") as fp:
+def load_model_and_data(param_config, model_config, checkpoint):
+    with open(f"params/params_{param_config}", "r") as fp:
         params = json.load(fp)
 
     tokens_per_batch = params["tokens_per_batch"]
@@ -45,7 +45,9 @@ def load_model_and_data(path, checkpoint):
     )
     model = model.to(DEVICE)
 
-    checkpoint = torch.load(f"{path}/{checkpoint}.tar")
+    global checkpoint_dir
+    checkpoint_dir = f"checkpoints/{model_config}/{param_config}"
+    checkpoint = torch.load(f"{checkpoint_dir}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 
     with open(f"data/wmt14_{vocab_size}_{max_length}_validation.json", "r") as fp:
@@ -142,18 +144,19 @@ def plot_entropy(entropy_tensor, lower_quantile, upper_quantile):
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
-    parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
+    parser.add_argument("--param_config", required=True, type=str, help="param config of experiment to use")
+    parser.add_argument("--model_config", required=True, type=str, help="model config of experiment to use")
     parser.add_argument("--checkpoint", required=True, type=str, help="name of model state to use")
     args = parser.parse_args()
 
-    config = args.config
+    param_config = args.param_config
+    model_config = args.model_config
     checkpoint = args.checkpoint
 
     global tfu
-    tfu = importlib.import_module(f"utils.transformer_utils_{config}")
+    tfu = importlib.import_module(f"utils.transformer_utils_{model_config}")
     
-    path = f"checkpoints/{config}"
-    model, test_dataloader  = load_model_and_data(path, checkpoint)
+    model, test_dataloader = load_model_and_data(param_config, model_config, checkpoint)
     print("loaded model and data")
     # get attention weights
     enc_attn_batch_list, dec_self_batch_list, enc_dec_batch_list = gather_attn_weights(model, test_dataloader)
@@ -175,10 +178,10 @@ def main():
         "encoder_decoder": [enc_dec_entropy, enc_dec_lower_quantile, enc_dec_upper_quantile]
     }
 
-    os.makedirs(f"{path}/entropy_plots", exist_ok=True)
+    os.makedirs(f"{checkpoint_dir}/entropy_plots", exist_ok=True)
     for entropy in entropies_dict:
         plot_entropy(*entropies_dict[entropy])
-        plt.savefig(f"{path}/entropy_plots/{entropy}.png", bbox_inches="tight", dpi=300)
+        plt.savefig(f"{checkpoint_dir}/entropy_plots/{entropy}.png", bbox_inches="tight", dpi=300)
         print(f"saved {entropy} plots")
 
 if __name__ == "__main__":

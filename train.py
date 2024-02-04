@@ -18,16 +18,13 @@ from utils import decoding_utils
 
 PAD_IDX = 2
 
-def set_global_params(config):
-    with open(f"params/params_{config}.json", "r") as fp:
+def set_global_params(param_config, model_config):
+    with open(f"params/params_{param_config}.json", "r") as fp:
         params = json.load(fp)
 
     global checkpoint_dir
-    checkpoint_dir = f"checkpoints/{config}"
+    checkpoint_dir = f"checkpoints/{model_config}/{param_config}"
     os.makedirs(checkpoint_dir, exist_ok=True)
-
-    with open(f"{checkpoint_dir}/params.json", "w") as fp:
-        json.dump(params, fp)
 
     global vocab_size, tokenizer, max_length, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
     vocab_size = params["vocab_size"]
@@ -233,12 +230,13 @@ class Trainer:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, type=str, help="experiment config name")
+    parser.add_argument("--param_config", required=True, type=str, help="param config of experiment to use")
+    parser.add_argument("--model_config", required=True, type=str, help="model config of experiment to use")
     args = parser.parse_args()
 
-    set_global_params(args.config)
+    set_global_params(args.param_config, args.model_config)
     global tfu
-    tfu = importlib.import_module(f"utils.transformer_utils_{args.config}")
+    tfu = importlib.import_module(f"utils.transformer_utils_{args.model_config}")
 
     ddp_setup()
     # easily fits into memory
