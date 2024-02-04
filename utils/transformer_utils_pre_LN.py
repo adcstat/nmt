@@ -177,7 +177,7 @@ class Transformer(nn.Module):
     @torch.no_grad()
     def get_attention_weights(self, src, tgt, src_padding_mask, tgt_padding_mask):
         enc_att_weights_all = []
-        enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
+        enc = self.positional_encoding(self.tok_emb(src.long()))
         for layer in self.encoder:
             enc, enc_att_weights = layer(enc, src_padding_mask)
             enc_att_weights_all.append(enc_att_weights)
@@ -187,7 +187,7 @@ class Transformer(nn.Module):
 
         dec_self_att_weights_all = []
         enc_dec_weights_all = []
-        dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
+        dec = self.positional_encoding(self.tok_emb(tgt.long()))
         for layer in self.decoder:
             dec, dec_self_att_weights, enc_dec_weights = layer(dec, enc, tgt_padding_mask, src_padding_mask)
             dec_self_att_weights_all.append(dec_self_att_weights)
@@ -199,13 +199,13 @@ class Transformer(nn.Module):
         return enc_att_weights_all, dec_self_att_weights_all, enc_dec_weights_all
 
     def encode(self, src: Tensor, src_padding_mask: Tensor):
-        enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
+        enc = self.positional_encoding(self.tok_emb(src.long()))
         for layer in self.encoder:
             enc, _ = layer(enc, src_padding_mask)
         return self.encoder_final_ln(enc)
 
     def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
-        dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
+        dec = self.positional_encoding(self.tok_emb(tgt.long()))
         for layer in self.decoder:
             dec, _, _ = layer(dec, enc, tgt_padding_mask, src_padding_mask)
         return self.decoder_final_ln(dec)
