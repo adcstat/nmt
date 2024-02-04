@@ -161,7 +161,7 @@ class Transformer(nn.Module):
 
         for p in self.parameters():
             if p.dim() > 1:
-                nn.init.xavier_uniform_(p, gain=0.1)
+                nn.init.xavier_uniform_(p, gain=0.1) # gain=0.1 is the secret sauce to make it stable
 
     @torch.no_grad()
     def get_attention_weights(self, src, tgt, src_padding_mask, tgt_padding_mask):
