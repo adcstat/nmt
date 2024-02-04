@@ -41,7 +41,7 @@ def collect_losses(losses_path):
     print("saved losses")
 
 def main():
-    parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
+    parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=str, help="config of experiment to use")
     args = parser.parse_args()
     collect_losses(f"checkpoints/{args.config}/losses")
