@@ -20,12 +20,14 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PAD_IDX = 2
 
-def load_model(path, checkpoint):
+def load_model_and_data(path, checkpoint):
     with open(f"{path}/params.json", "r") as fp:
         params = json.load(fp)
 
     tokens_per_batch = params["tokens_per_batch"]
     vocab_size = params["vocab_size"]
+    max_length = params["max_length"]
+    tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer_{vocab_size}.json")
     d_model = params["d_model"]
     n_heads = params["n_heads"]
     d_ff = params["d_ff"]
@@ -46,10 +48,7 @@ def load_model(path, checkpoint):
     checkpoint = torch.load(f"{path}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 
-    return model, tokens_per_batch
-
-def load_test_data(tokens_per_batch, tokenizer):
-    with open(f"data/wmt14_200_validation.json", "r") as fp:
+    with open(f"data/wmt14_{vocab_size}_{max_length}_validation.json", "r") as fp:
         test_data = json.load(fp)
     test_data_batched = data_utils.BatchedDataset(test_data, tokens_per_batch)
     test_dataloader = DataLoader(
@@ -59,7 +58,8 @@ def load_test_data(tokens_per_batch, tokenizer):
         pin_memory=True,
         shuffle=False
     )
-    return test_dataloader
+
+    return model, test_dataloader
 
 def gather_attn_weights(model, test_dataloader):
     enc_attn_batch_list = []
@@ -152,10 +152,8 @@ def main():
     global tfu
     tfu = importlib.import_module(f"utils.transformer_utils_{config}")
     
-    tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer.json")
     path = f"checkpoints/{config}"
-    model, tokens_per_batch  = load_model(path, checkpoint)
-    test_dataloader = load_test_data(tokens_per_batch, tokenizer)
+    model, test_dataloader  = load_model_and_data(path, checkpoint)
     print("loaded model and data")
     # get attention weights
     enc_attn_batch_list, dec_self_batch_list, enc_dec_batch_list = gather_attn_weights(model, test_dataloader)
