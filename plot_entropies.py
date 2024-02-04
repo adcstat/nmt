@@ -142,11 +142,11 @@ def plot_entropy(entropy_tensor, lower_quantile, upper_quantile):
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
-    parser.add_argument("--vocab_size", required=True, type=int, help="size of vocabulary")
-    parser.add_argument("--max_length", required=True, type=int, help="maximum token count of sequences in data")
-    parser.add_argument("--param_config", required=True, type=str, help="param config of experiment to use")
-    parser.add_argument("--model_config", required=True, type=str, help="model config of experiment to use")
-    parser.add_argument("--checkpoint", required=True, type=str, help="name of model state to use")
+    parser.add_argument("--vocab_size", "-v", required=True, type=int, help="size of vocabulary")
+    parser.add_argument("--max_length", "-ml", required=True, type=int, help="maximum token count of sequences in data")
+    parser.add_argument("--param_config", "-pc", required=True, type=str, help="param config of experiment to use")
+    parser.add_argument("--model_config", "-mc", required=True, type=str, help="model config of experiment to use")
+    parser.add_argument("--checkpoint", "-c", required=True, type=str, help="name of model state to use")
     args = parser.parse_args()
 
     vocab_size = args.vocab_size

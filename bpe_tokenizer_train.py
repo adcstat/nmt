@@ -77,8 +77,8 @@ def process_data(tokenizer, data_dict, max_length):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--vocab_size", required=True, type=int, help="size of vocabulary")
-    parser.add_argument("--max_length", required=True, type=int, help="maximum token count of sequences in data")
+    parser.add_argument("--vocab_size", "-v", required=True, type=int, help="size of vocabulary")
+    parser.add_argument("--max_length", "-ml", required=True, type=int, help="maximum token count of sequences in data")
     args = parser.parse_args()
     vocab_size = args.vocab_size
     max_length = args.max_length
