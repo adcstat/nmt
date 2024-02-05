@@ -158,7 +158,7 @@ def main():
     global tfu
     tfu = importlib.import_module(f"utils.transformer_utils_{model_config}")
     
-    model, test_dataloader = load_model_and_data(vocab_size, max_length, param_config, model_config, checkpoint)
+    model, test_dataloader = load_model_and_data(vocab_size, param_config, model_config, checkpoint)
     print("loaded model and data")
     # get attention weights
     enc_attn_batch_list, dec_self_batch_list, enc_dec_batch_list = gather_attn_weights(model, test_dataloader)
