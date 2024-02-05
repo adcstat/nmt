@@ -1,6 +1,6 @@
 {
     "tokens_per_batch": 20000,
-    "epochs": 25,
+    "epochs": 40,
     "tokens_per_opt_step": 400000,
     "d_model": 1024,
     "n_heads": 16,
@@ -8,5 +8,5 @@
     "n_layers": 6,
     "dropout": 0.3,
     "warmup_steps": 4000,
-    "max_lr": 0.001
+    "max_lr": 0.0005
 }
