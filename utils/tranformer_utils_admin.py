@@ -25,7 +25,6 @@ class PositionalEncoding(nn.Module):
     def forward(self, token_embedding: Tensor):
         return self.dropout(token_embedding + self.pos_embedding[:token_embedding.shape[1]])
 
-
 class MultiHeadAttention(nn.Module):
     def __init__(self, n_heads, d_model, dropout, masked):
         super().__init__()
@@ -77,7 +76,6 @@ class MultiHeadAttention(nn.Module):
         attention = self.dropout(self.proj(attention)) # (batch_size, seq_len_q, d_model)
         return attention, attention_weights_inter
 
-
 class FeedForward(nn.Module):
     def __init__(self, d_model, d_ff, dropout):
         super().__init__()
@@ -112,7 +110,6 @@ class EncoderLayer(nn.Module):
         out = self.ln2(self.residual_ffn(self.ffwd(sa_norm), sa_norm))
         return out, attention_weights
 
-
 class DecoderLayer(nn.Module):
     def __init__(self, n_heads, d_model, d_ff, dropout, n_layers):
         super().__init__()
@@ -143,7 +140,6 @@ class DecoderLayer(nn.Module):
         ca_norm = self.ln2(self.residual_cattn(ca, sa_norm))
         out = self.ln3(self.residual_ffn(self.ffwd(ca_norm), ca_norm))
         return out, sa_weights, ca_weights
-
 
 class Transformer(nn.Module):
     def __init__(
