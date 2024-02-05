@@ -182,26 +182,30 @@ class Transformer(nn.Module):
 
     @torch.no_grad()
     def get_attention_weights(self, src, tgt, src_padding_mask, tgt_padding_mask):
-        enc, prev = self.encode(src, src_padding_mask)
-        _, prev_sa, prev_ca = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
+        enc, prev = self.encode(src, src_padding_mask, True)
+        _, prev_sa, prev_ca = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask, True)
         enc_att_weights_all = prev.permute(0, 2, 1, 3, 4).softmax(-1)
         dec_self_att_weights_all = prev_sa.permute(0, 2, 1, 3, 4).softmax(-1)
         enc_dec_weights_all = prev_ca.permute(0, 2, 1, 3, 4).softmax(-1)
         return enc_att_weights_all, dec_self_att_weights_all, enc_dec_weights_all
 
-    def encode(self, src: Tensor, src_padding_mask: Tensor):
+    def encode(self, src: Tensor, src_padding_mask: Tensor, return_prev: bool = False):
         enc = self.positional_encoding(self.tok_emb(src.long()) * self.d_model**0.5)
         prev = None
         for layer in self.encoder:
             enc, prev = layer(enc, src_padding_mask, prev)
-        return enc, prev
+        if return_prev:
+            return enc, prev
+        return enc
 
-    def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask):
+    def decode(self, tgt, enc, tgt_padding_mask, src_padding_mask, return_prev: bool = False):
         dec = self.positional_encoding(self.tok_emb(tgt.long()) * self.d_model**0.5)
         prev_sa, prev_ca = None, None
         for layer in self.decoder:
             dec, prev_sa, prev_ca = layer(dec, enc, tgt_padding_mask, src_padding_mask, prev_sa, prev_ca)
-        return dec, prev_sa, prev_ca
+        if return_prev:
+            return dec, prev_sa, prev_ca
+        return dec
 
     def unembedding(self, dec):
         logits = dec @ self.tok_emb.weight.T
@@ -214,8 +218,8 @@ class Transformer(nn.Module):
         src_padding_mask: Tensor,
         tgt_padding_mask: Tensor
     ):
-        enc, _ = self.encode(src, src_padding_mask)
-        dec, _, _ = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
+        enc = self.encode(src, src_padding_mask)
+        dec = self.decode(tgt, enc, tgt_padding_mask, src_padding_mask)
         logits = self.unembedding(dec)
 
         return logits
