@@ -23,11 +23,11 @@ def set_global_params(param_config, model_config):
         params = json.load(fp)
 
     global checkpoint_dir
-    checkpoint_dir = f"checkpoints/tok_{vocab_size}_{max_length}/{model_config}/{param_config}"
+    checkpoint_dir = f"checkpoints/tok_{vocab_size}/{model_config}/{param_config}"
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     global tokenizer, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
-    tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer_{vocab_size}.json")
+    tokenizer = Tokenizer.from_file(f"data/{vocab_size}/bpe_tokenizer.json")
     tokens_per_batch = params["tokens_per_batch"]
     epochs = params["epochs"]
     tokens_per_opt_step = params["tokens_per_opt_step"]
@@ -253,7 +253,7 @@ def main():
     set_global_params(args.param_config, args.model_config)
     ddp_setup()
     # easily fits into memory
-    with open(f"data/{vocab_size}_{max_length}/wmt14.json", "r") as fp:
+    with open(f"data/{vocab_size}/wmt14.json", "r") as fp:
         wmt14 = json.load(fp)
     train_data = get_dataloader(BatchedDataset(wmt14["train"], tokens_per_batch), tokenizer)
     val_data = get_dataloader(BatchedDataset(wmt14["validation"], tokens_per_batch // 2), tokenizer)

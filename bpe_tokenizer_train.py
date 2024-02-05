@@ -43,7 +43,7 @@ def initialize_tokenizer():
 def train_tokenizer(tokenizer, text_list, vocab_size):
     trainer = BpeTrainer(vocab_size=vocab_size, min_frequency=2, special_tokens=special_tokens, show_progress=True)
     tokenizer.train_from_iterator(text_list, trainer)
-    tokenizer.save(f"data/bpe_tokenizer_{vocab_size}.json")
+    tokenizer.save(f"data/{vocab_size}/bpe_tokenizer.json")
 
 def process_data(tokenizer, data_dict, max_length):
     tokenizer.no_padding()
@@ -92,11 +92,11 @@ def main():
     print("trained tokenizer!")
     processed_data = process_data(tokenizer, data_dict, max_length)
     print("processed data!")
-    with open(f"data/{vocab_size}_{max_length}/wmt14.json", "w") as fp:
+    with open(f"data/{vocab_size}/wmt14.json", "w") as fp:
         json.dump(processed_data, fp)
-    with open(f"data/{vocab_size}_{max_length}/wmt14_validation.json", "w") as fp:
+    with open(f"data/{vocab_size}/wmt14_validation.json", "w") as fp:
         json.dump(processed_data["validation"], fp)
-    with open(f"data/{vocab_size}_{max_length}/wmt14_test.json", "w") as fp:
+    with open(f"data/{vocab_size}/wmt14_test.json", "w") as fp:
         json.dump(processed_data["test"], fp)
     print("saved data!")
 

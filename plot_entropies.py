@@ -20,12 +20,12 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PAD_IDX = 2
 
-def load_model_and_data(vocab_size, max_length, param_config, model_config, checkpoint):
+def load_model_and_data(vocab_size, param_config, model_config, checkpoint):
     with open(f"params/params_{param_config}.json", "r") as fp:
         params = json.load(fp)
 
     tokens_per_batch = params["tokens_per_batch"]
-    tokenizer = Tokenizer.from_file(f"data/bpe_tokenizer_{vocab_size}.json")
+    tokenizer = Tokenizer.from_file(f"data/{vocab_size}/bpe_tokenizer.json")
     d_model = params["d_model"]
     n_heads = params["n_heads"]
     d_ff = params["d_ff"]
@@ -44,11 +44,11 @@ def load_model_and_data(vocab_size, max_length, param_config, model_config, chec
     model = model.to(DEVICE)
 
     global checkpoint_dir
-    checkpoint_dir = f"checkpoints/tok_{vocab_size}_{max_length}/{model_config}/{param_config}"
+    checkpoint_dir = f"checkpoints/tok_{vocab_size}/{model_config}/{param_config}"
     checkpoint = torch.load(f"{checkpoint_dir}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 
-    with open(f"data/{vocab_size}_{max_length}/wmt14_validation.json", "r") as fp:
+    with open(f"data/{vocab_size}/wmt14_validation.json", "r") as fp:
         test_data = json.load(fp)
     test_data_batched = data_utils.BatchedDataset(test_data, tokens_per_batch)
     test_dataloader = DataLoader(
