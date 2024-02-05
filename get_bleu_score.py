@@ -40,7 +40,7 @@ def load_model_and_data(param_config, model_config, checkpoint, split):
     )
     model = model.to(DEVICE)
 
-    checkpoint_dir = f"checkpoints/tok_{vocab_size}/{model_config}/{param_config}"
+    checkpoint_dir = f"checkpoints/{vocab_size}/{model_config}/{param_config}"
     checkpoint = torch.load(f"{checkpoint_dir}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 

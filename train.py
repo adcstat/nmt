@@ -23,7 +23,7 @@ def set_global_params(param_config, model_config):
         params = json.load(fp)
 
     global checkpoint_dir
-    checkpoint_dir = f"checkpoints/tok_{vocab_size}/{model_config}/{param_config}"
+    checkpoint_dir = f"checkpoints/{vocab_size}/{model_config}/{param_config}"
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     global tokenizer, tokens_per_batch, epochs, tokens_per_opt_step, d_model, n_heads, d_ff, n_layers, dropout, warmup_steps, max_lr
