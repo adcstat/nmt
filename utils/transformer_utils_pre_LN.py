@@ -219,17 +219,3 @@ class Transformer(nn.Module):
         logits = self.unembedding(dec)
 
         return logits
-
-def get_optimizer(parameters):
-    return torch.optim.Adam(parameters, lr=0, betas=(0.9, 0.98), eps=1e-9)
-
-class TransformerScheduler(torch.optim.lr_scheduler._LRScheduler):
-    def __init__(self, optimizer, warmup_steps, max_rate):
-        self.warmup_steps = warmup_steps
-        self.max_rate = max_rate
-        super().__init__(optimizer)
-
-    def get_lr(self):
-        step_num = self._step_count
-        lr = self.max_rate * min((self.warmup_steps / step_num)**0.5, step_num / self.warmup_steps)
-        return [lr for _ in self.optimizer.param_groups]

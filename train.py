@@ -43,6 +43,17 @@ def ddp_setup():
     dist.init_process_group(backend="nccl")
     torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
 
+class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
+    def __init__(self, optimizer, warmup_steps, max_rate):
+        self.warmup_steps = warmup_steps
+        self.max_rate = max_rate
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        step_num = self._step_count
+        lr = self.max_rate * min((self.warmup_steps / step_num)**0.5, step_num / self.warmup_steps)
+        return [lr for _ in self.optimizer.param_groups]
+
 class Trainer:
     def __init__(
         self,
@@ -67,9 +78,9 @@ class Trainer:
         self._print_infos()
 
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX, label_smoothing=0.1)
-        self.optimizer = tfu.get_optimizer(self.model.parameters())
+        self.optimizer = torch.optim.Adam(self.model.parameters, lr=0, betas=(0.9, 0.98), eps=1e-9)
         self.scaler = torch.cuda.amp.GradScaler()
-        self.schedule = tfu.TransformerScheduler(
+        self.schedule = LRScheduler(
             self.optimizer,
             warmup_steps=warmup_steps,
             max_rate=max_lr
