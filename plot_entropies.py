@@ -48,7 +48,7 @@ def load_model_and_data(vocab_size, max_length, param_config, model_config, chec
     checkpoint = torch.load(f"{checkpoint_dir}/{checkpoint}.tar")
     model.load_state_dict(checkpoint['MODEL_STATE'])
 
-    with open(f"data/wmt14_{vocab_size}_{max_length}_validation.json", "r") as fp:
+    with open(f"data/{vocab_size}_{max_length}/wmt14_validation.json", "r") as fp:
         test_data = json.load(fp)
     test_data_batched = data_utils.BatchedDataset(test_data, tokens_per_batch)
     test_dataloader = DataLoader(

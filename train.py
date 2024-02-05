@@ -253,7 +253,7 @@ def main():
     set_global_params(args.param_config, args.model_config)
     ddp_setup()
     # easily fits into memory
-    with open(f"data/wmt14_{vocab_size}_{max_length}.json", "r") as fp:
+    with open(f"data/{vocab_size}_{max_length}/wmt14.json", "r") as fp:
         wmt14 = json.load(fp)
     train_data = get_dataloader(BatchedDataset(wmt14["train"], tokens_per_batch), tokenizer)
     val_data = get_dataloader(BatchedDataset(wmt14["validation"], tokens_per_batch // 2), tokenizer)

@@ -92,11 +92,11 @@ def main():
     print("trained tokenizer!")
     processed_data = process_data(tokenizer, data_dict, max_length)
     print("processed data!")
-    with open(f"data/wmt14_{vocab_size}_{max_length}.json", "w") as fp:
+    with open(f"data/{vocab_size}_{max_length}/wmt14.json", "w") as fp:
         json.dump(processed_data, fp)
-    with open(f"data/wmt14_{vocab_size}_{max_length}_validation.json", "w") as fp:
+    with open(f"data/{vocab_size}_{max_length}/wmt14_validation.json", "w") as fp:
         json.dump(processed_data["validation"], fp)
-    with open(f"data/wmt14_{vocab_size}_{max_length}_test.json", "w") as fp:
+    with open(f"data/{vocab_size}_{max_length}/wmt14_test.json", "w") as fp:
         json.dump(processed_data["test"], fp)
     print("saved data!")
 
