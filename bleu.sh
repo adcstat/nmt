@@ -21,7 +21,7 @@ beam_widths=(3 4 5)
 for split in "${splits[@]}"; do
     for beam_width in "${beam_widths[@]}"; do
         echo "Running with split=$split and beam_width=$beam_width"
-        python your_script.py --vocab_size $vocab_size \
+        python get_bleu_score.py --vocab_size $vocab_size \
                               --max_length $max_length \
                               --param_config $param_config \
                               --model_config $model_config \

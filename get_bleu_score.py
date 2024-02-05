@@ -18,7 +18,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def load_model_and_data(param_config, model_config, checkpoint, split):
-    with open(f"params/params_{param_config}", "r") as fp:
+    with open(f"params/params_{param_config}.json", "r") as fp:
         params = json.load(fp)
 
     tokens_per_batch = params["tokens_per_batch"]
