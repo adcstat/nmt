@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # Check if the correct number of arguments is provided
-if [ "$#" -ne 5 ]; then
+if [ "$#" -ne 4 ]; then
     echo "Usage: $0 vocab_size param_config model_config checkpoint"
     exit 1
 fi
 
 # Assign command line arguments to variables
 vocab_size=$1
-param_config=$3
-model_config=$4
-checkpoint=$5
+param_config=$2
+model_config=$3
+checkpoint=$4
 
 # Arrays of split and beam_width values
 splits=("validation" "test")
