@@ -17,7 +17,7 @@ PAD_IDX = 2
 special_tokens = ["<bos>", "<eos>", "<pad>"]
 
 def load_data():
-    data_iter = load_dataset("wmt14", 'de-en')
+    data_iter = load_dataset("stas/wmt14-en-de-pre-processed")
     data_dict = {split: [[item["translation"]["en"], item["translation"]["de"]] for item in data_iter[split]] for split in ["train", "validation", "test"]}
     return data_dict
 
