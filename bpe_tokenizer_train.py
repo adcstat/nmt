@@ -87,7 +87,7 @@ def main():
     train_text_list = flatten_data(data_dict["train"])
     tokenizer = initialize_tokenizer()
     print("initialized tokenizer!")
-    os.makedirs("data", exist_ok=True)
+    os.makedirs(f"data/{vocab_size}", exist_ok=True)
     train_tokenizer(tokenizer, train_text_list, vocab_size)
     print("trained tokenizer!")
     processed_data = process_data(tokenizer, data_dict, max_length)
