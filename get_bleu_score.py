@@ -67,7 +67,7 @@ def save_bleu(param_config, model_config, split, beam_width, bleu):
         writer = csv.writer(file)
         # Write headers if the file is being created for the first time
         if not file_exists:
-            writer.writerow(["Config", "Split", "Beam Width", "BLEU Score"])
+            writer.writerow(["vocab_size", "max_length", "model_config", "param_config", "split", "bw", "bleu"])
         # Write the data
         writer.writerow([vocab_size, max_length, model_config, param_config, split, beam_width, bleu])
     
