@@ -98,7 +98,7 @@ def main():
     model, tokenizer, test_dataloader = load_model_and_data(param_config, model_config, checkpoint, split)
 
     bleu = decoding_utils.get_bleu_score(tokenizer, model, test_dataloader, beam_width, DEVICE).item()
-    print(bleu)
+    print(f"split: {split}, bw: {beam_width}, bleu: {bleu}")
     save_bleu(param_config, model_config, split, beam_width, bleu)
 
 if __name__ == "__main__":
