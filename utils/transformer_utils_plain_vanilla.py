@@ -166,7 +166,6 @@ class Transformer(nn.Module):
         for layer in self.encoder:
             enc, enc_att_weights = layer(enc, src_padding_mask)
             enc_att_weights_all.append(enc_att_weights)
-        enc = self.encoder_final_ln(enc)
         enc_att_weights_all = torch.stack(enc_att_weights_all) # (n_layers, batch_size, n_heads, seq_len_q, seq_len_kv)
         enc_att_weights_all = enc_att_weights_all.permute(0, 2, 1, 3, 4) # (n_layers, n_heads, batch_size, seq_len_q, seq_len_kv)
 
