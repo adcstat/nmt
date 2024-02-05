@@ -2,13 +2,12 @@
 
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 5 ]; then
-    echo "Usage: $0 vocab_size max_length param_config model_config checkpoint"
+    echo "Usage: $0 vocab_size param_config model_config checkpoint"
     exit 1
 fi
 
 # Assign command line arguments to variables
 vocab_size=$1
-max_length=$2
 param_config=$3
 model_config=$4
 checkpoint=$5
@@ -22,7 +21,6 @@ for split in "${splits[@]}"; do
     for beam_width in "${beam_widths[@]}"; do
         echo "Running with split=$split and beam_width=$beam_width"
         python get_bleu_score.py --vocab_size $vocab_size \
-                              --max_length $max_length \
                               --param_config $param_config \
                               --model_config $model_config \
                               --checkpoint $checkpoint \

@@ -67,16 +67,15 @@ def save_bleu(param_config, model_config, split, beam_width, bleu):
         writer = csv.writer(file)
         # Write headers if the file is being created for the first time
         if not file_exists:
-            writer.writerow(["vocab_size", "max_length", "model_config", "param_config", "split", "bw", "bleu"])
+            writer.writerow(["vocab_size", "model_config", "param_config", "split", "bw", "bleu"])
         # Write the data
-        writer.writerow([vocab_size, max_length, model_config, param_config, split, beam_width, bleu])
+        writer.writerow([vocab_size, model_config, param_config, split, beam_width, bleu])
     
     print(f"BLEU score written to {bleu_file_path}")
 
 def main():
     parser = argparse.ArgumentParser(description="Load checkpoints and save loss arrays.")
     parser.add_argument("--vocab_size", "-v", required=True, type=int, help="size of vocabulary")
-    parser.add_argument("--max_length", "-ml", required=True, type=int, help="maximum token count of sequences in data")
     parser.add_argument("--param_config", "-pc", required=True, type=str, help="param config of experiment to use")
     parser.add_argument("--model_config", "-mc", required=True, type=str, help="model config of experiment to use")
     parser.add_argument("--checkpoint", "-c", required=True, type=str, help="name of model state to use")
@@ -90,9 +89,8 @@ def main():
     split = args.split
     beam_width = args.beam_width
 
-    global vocab_size, max_length, tfu
+    global vocab_size, tfu
     vocab_size = args.vocab_size
-    max_length = args.max_length
     tfu = importlib.import_module(f"utils.transformer_utils_{model_config}")
 
     model, tokenizer, test_dataloader = load_model_and_data(param_config, model_config, checkpoint, split)
