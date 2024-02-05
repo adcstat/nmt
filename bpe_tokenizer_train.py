@@ -1,3 +1,6 @@
+"""
+This module provides methods to load the wmt14 en-de data and train a byte-level BPE tokenizer
+"""
 import argparse
 import os
 import json
@@ -17,18 +20,38 @@ PAD_IDX = 2
 special_tokens = ["<bos>", "<eos>", "<pad>"]
 
 def load_data():
+    """
+    Loads the WMT14 English-German dataset.
+
+    Returns:
+        dict: A dictionary containing 'train', 'validation', and 'test' splits of the dataset.
+    """
     data_iter = load_dataset("wmt14", 'de-en')
     data_dict = {split: [[item["translation"]["en"], item["translation"]["de"]] for item in data_iter[split]] for split in ["train", "validation", "test"]}
     return data_dict
 
-def flatten_data(data):
-    # make flattened list of all strings for bpe trainer
+def flatten_data(data: list) -> list:
+    """
+    Flattens a list of translation pairs to prepare for tokenizer training.
+
+    Args:
+        data (list): A list of translation pairs.
+
+    Returns:
+        list: A flattened list of all text data.
+    """
     text_list = []
     for item in data:
         text_list.extend(item)
     return text_list
 
-def initialize_tokenizer():
+def initialize_tokenizer() -> Tokenizer:
+    """
+    Initializes a Byte-Pair Encoding (BPE) tokenizer with specific pre and post-processing configurations.
+
+    Returns:
+        Tokenizer: A tokenizer object ready for training.
+    """
     tokenizer = Tokenizer(BPE())
     tokenizer.pre_tokenizer = bl_pre(add_prefix_space=False)
     add_bos_eos = TemplateProcessing(
@@ -40,12 +63,31 @@ def initialize_tokenizer():
     tokenizer.enable_padding(pad_id=PAD_IDX, pad_token=special_tokens[PAD_IDX])
     return tokenizer
 
-def train_tokenizer(tokenizer, text_list, vocab_size):
+def train_tokenizer(tokenizer: Tokenizer, text_list: list, vocab_size: int) -> None:
+    """
+    Trains the tokenizer on the provided text list.
+
+    Args:
+        tokenizer (Tokenizer): The tokenizer to be trained.
+        text_list (list): The list of text data for training.
+        vocab_size (int): The desired vocabulary size.
+    """
     trainer = BpeTrainer(vocab_size=vocab_size, min_frequency=2, special_tokens=special_tokens, show_progress=True)
     tokenizer.train_from_iterator(text_list, trainer)
     tokenizer.save(f"data/{vocab_size}/bpe_tokenizer.json")
 
-def process_data(tokenizer, data_dict, max_length):
+def process_data(tokenizer: Tokenizer, data_dict: dict, max_length: int) -> dict:
+    """
+    Processes the data to enforce a maximum sequence length and sorts entries by sequence length.
+
+    Args:
+        tokenizer (Tokenizer): The tokenizer to use for encoding the sequences.
+        data_dict (dict): The dataset split dictionary.
+        max_length (int): The maximum token count for sequences.
+
+    Returns:
+        dict: A dictionary of processed dataset splits.
+    """
     tokenizer.no_padding()
     processed_data = {}
     for split in data_dict:

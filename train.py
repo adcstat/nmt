@@ -1,3 +1,8 @@
+"""
+Executes distributed training of a Transformer model with PyTorch, loading model configurations,
+training, and validating across multiple GPUs. It supports dynamic parameter loading, checkpointing,
+and utilizes a custom learning rate scheduler.
+"""
 import importlib
 import argparse
 import os
@@ -18,7 +23,14 @@ from utils import decoding_utils
 
 PAD_IDX = 2
 
-def set_global_params(param_config, model_config):
+def set_global_params(param_config: str, model_config: str) -> None:
+    """
+    Sets global parameters for the model and training based on configuration files.
+
+    Args:
+        param_config (str): Identifier for the parameter configuration.
+        model_config (str): Identifier for the model configuration.
+    """
     with open(f"params/params_{param_config}.json", "r") as fp:
         params = json.load(fp)
 
@@ -44,6 +56,17 @@ def ddp_setup():
     torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
 
 class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
+    """
+    Implements a learning rate scheduler with a warmup phase where the learning rate increases linearly
+    from 0 to a maximum rate, followed by inverse squareroot decay.
+
+    Args:
+        optimizer (torch.optim.Optimizer): The optimizer for which to schedule the learning rate.
+        warmup_steps (int): The number of steps over which the learning rate will warm up.
+        max_rate (float): The maximum learning rate after warmup.
+
+    The learning rate at step `s` is `lr = max_rate * min((warmup_steps / s)^0.5, s / warmup_steps)`.
+    """
     def __init__(self, optimizer, warmup_steps, max_rate):
         self.warmup_steps = warmup_steps
         self.max_rate = max_rate
@@ -55,6 +78,18 @@ class LRScheduler(torch.optim.lr_scheduler._LRScheduler):
         return [lr for _ in self.optimizer.param_groups]
 
 class Trainer:
+    """
+    Manages the training process for a Transformer model including logging, checkpointing, and evaluation.
+
+    Args:
+        model (torch.nn.Module): The Transformer model to train.
+        train_data (DataLoader): DataLoader for the training dataset.
+        val_data (DataLoader): DataLoader for the validation dataset.
+
+    The class is responsible for managing the training loop, handling gradient accumulation, applying
+    gradient scaling for mixed precision training, updating the learning rate, logging losses to TensorBoard,
+    and saving/loading checkpoints.
+    """
     def __init__(
         self,
         model: torch.nn.Module,
@@ -94,13 +129,20 @@ class Trainer:
 
         self.model = DDP(self.model, device_ids=[self.gpu_id])
 
-    def _print_infos(self):
+    def _print_infos(self) -> None:
+        """
+        Prints information about the model and training setup to the console.
+        """
         if self.gpu_id == 0:
             print(f"Model has {sum(p.numel() for p in self.model.parameters())/1e6}M parameters")
             print(f"Training data has {self.train_data_len} batches")
             print(f"There are {self.opt_steps_per_epoch} opt steps per epoch")
 
-    def _save_snapshot(self, epoch, cp, train_losses, val_losses):
+    def _save_snapshot(self, epoch: int, cp: int, train_losses: np.ndarray, val_losses: np.ndarray) -> None:
+        """
+        Saves a snapshot of the model's state, optimizer's state, learning rate scheduler's state,
+        and losses for each epoch and checkpoint.
+        """
         os.makedirs(f"{checkpoint_dir}/losses", exist_ok=True)
         losses = {
             "TRAIN_LOSSES": train_losses,
@@ -127,7 +169,10 @@ class Trainer:
             print(f"Epoch {epoch} cp {cp} | Checkpoint saved at {cp_path}")
             print("********************************************")
 
-    def _load_snapshot(self, snapshot_path):
+    def _load_snapshot(self, snapshot_path: str) -> None:
+        """
+        Loads model, optimizer, and scheduler states from a snapshot to resume training.
+        """
         loc = f"cuda:{self.gpu_id}"
         snapshot = torch.load(snapshot_path, map_location=loc)
         self.model.load_state_dict(snapshot["MODEL_STATE"])
@@ -136,7 +181,10 @@ class Trainer:
         self.epochs_run = snapshot["EPOCHS_RUN"]
         print(f"Resuming training from snapshot at Epoch {self.epochs_run}")
 
-    def _run_batch(self, src, tgt, batch_i):
+    def _run_batch(self, src: torch.Tensor, tgt: torch.Tensor, batch_i: int) -> np.ndarray:
+        """
+        Processes a single batch of data, computes the loss, and performs a backward pass.
+        """
         src = src.to(self.gpu_id)
         tgt = tgt.to(self.gpu_id)
 
@@ -161,7 +209,10 @@ class Trainer:
 
         return np.array([loss.item()])
 
-    def _evaluate(self):
+    def _evaluate(self) -> float:
+        """
+        Evaluates the model on the validation dataset and returns the average loss.
+        """
         self.model.eval()
         losses = 0
         for src, tgt in self.val_data:
@@ -181,7 +232,10 @@ class Trainer:
 
         return losses / self.val_data_len
 
-    def _test_translate(self):
+    def _test_translate(self) -> None:
+        """
+        Translates a set of predefined sentences to visually inspect the model's translation quality.
+        """
         if self.gpu_id == 0:
             test_sentences = [
                 "Birds fly in the sky.",
@@ -199,7 +253,10 @@ class Trainer:
                 translation = decoding_utils.translate(tokenizer, self.model.module, sentence, 4, self.gpu_id)
                 print(f"src: {sentence} \ntranslation: {translation}")
 
-    def train(self):
+    def train(self) -> None:
+        """
+        Executes the training loop, periodically evaluating the model and saving checkpoints.
+        """
         print("lr: ", self.optimizer.param_groups[0]["lr"])
         self._test_translate()
         self.model.train()

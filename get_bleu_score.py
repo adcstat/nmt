@@ -1,23 +1,34 @@
-# python standard
+"""
+Evaluates Transformer models by computing BLEU scores on specified dataset splits.
+"""
 import importlib
 import os
 import json
 import csv
 import argparse
 
-# huggingface
 from tokenizers import Tokenizer
 
-# torch
 import torch
 from torch.utils.data import DataLoader
 
-# custom
 from utils import decoding_utils, data_utils
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-def load_model_and_data(param_config, model_config, checkpoint, split):
+def load_model_and_data(param_config: str, model_config: str, checkpoint: str, split: str):
+    """
+    Loads the model, tokenizer, and data for a given experiment configuration and dataset split.
+
+    Args:
+        param_config (str): Parameter configuration identifier.
+        model_config (str): Model configuration identifier.
+        checkpoint (str): Checkpoint filename to load the model state.
+        split (str): Dataset split to evaluate on.
+
+    Returns:
+        Tuple: Loaded model, tokenizer, and DataLoader for the test dataset.
+    """
     with open(f"params/params_{param_config}.json", "r") as fp:
         params = json.load(fp)
 
@@ -58,7 +69,17 @@ def load_model_and_data(param_config, model_config, checkpoint, split):
     return model, tokenizer, test_dataloader
 
 
-def save_bleu(param_config, model_config, split, beam_width, bleu):
+def save_bleu(param_config: str, model_config: str, split: str, beam_width: int, bleu: float):
+    """
+    Saves the computed BLEU score to a CSV file.
+
+    Args:
+        param_config (str): Parameter configuration identifier.
+        model_config (str): Model configuration identifier.
+        split (str): Dataset split evaluated on.
+        beam_width (int): Beam width used for decoding.
+        bleu (float): Computed BLEU score.
+    """
     bleu_file_path = 'checkpoints/bleus.csv'
     # Check if file exists to decide if we need to write headers
     file_exists = os.path.exists(bleu_file_path)

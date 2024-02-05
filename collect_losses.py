@@ -1,10 +1,19 @@
+"""
+This script processes and aggregates training and validation losses stored in checkpoint files.
+"""
 import argparse
 from collections import defaultdict
 import os
 import numpy as np
 import torch
 
-def collect_losses(losses_path):
+def collect_losses(losses_path: str):
+    """
+    Collects and processes training and validation losses from checkpoint files.
+
+    Args:
+        losses_path (str): The directory containing the checkpoint files.
+    """
     train_losses = []
     val_losses = []
     fps = [os.path.join(losses_path, fn) for fn in os.listdir(losses_path) if fn.endswith(".tar")]

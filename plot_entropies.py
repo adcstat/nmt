@@ -1,5 +1,8 @@
-# python standard
+"""
+Analyzes Transformer attention weights by calculating and plotting entropy distributions.
+"""
 import importlib
+from typing import List, Tuple
 import os
 import json
 import argparse
@@ -7,20 +10,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# huggingface
 from tokenizers import Tokenizer
 
-# torch
 import torch
+from torch import Tensor
 from torch.utils.data import DataLoader
 
-# custom
 from utils import data_utils
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PAD_IDX = 2
 
-def load_model_and_data(vocab_size, param_config, model_config, checkpoint):
+def load_model_and_data(vocab_size: int, param_config: str, model_config: str, checkpoint: str):
+    """
+    Loads the Transformer model and validation data based on the specified configurations.
+
+    Args:
+        vocab_size (int): Vocabulary size used for the tokenizer.
+        param_config (str): Parameter configuration file name.
+        model_config (str): Model configuration identifier.
+        checkpoint (str): Checkpoint file name to load the model weights.
+
+    Returns:
+        tuple: Loaded model, DataLoader for the validation dataset.
+    """
     with open(f"params/params_{param_config}.json", "r") as fp:
         params = json.load(fp)
 
@@ -61,7 +74,17 @@ def load_model_and_data(vocab_size, param_config, model_config, checkpoint):
 
     return model, test_dataloader
 
-def gather_attn_weights(model, test_dataloader):
+def gather_attn_weights(model: torch.nn.module, test_dataloader: DataLoader):
+    """
+    Gathers attention weights from the model for the given dataset.
+
+    Args:
+        model (torch.nn.Module): The loaded Transformer model.
+        test_dataloader (DataLoader): DataLoader for the test dataset.
+
+    Returns:
+        tuple: Encoder attention weights, decoder self-attention weights, encoder-decoder attention weights.
+    """
     enc_attn_batch_list = []
     dec_self_batch_list = []
     enc_dec_batch_list = []
@@ -80,14 +103,32 @@ def gather_attn_weights(model, test_dataloader):
         enc_dec_batch_list.append(enc_dec_weights_all)
     return enc_attn_batch_list, dec_self_batch_list, enc_dec_batch_list
 
-def calculate_entropy(tensor):
+def calculate_entropy(tensor: Tensor) -> Tensor:
+    """
+    Calculates entropy for attention weight distributions.
+    
+    Args:
+        tensor (torch.Tensor): A tensor of attention weights.
+
+    Returns:
+        torch.Tensor: The calculated entropy of the attention weights.
+    """
     # Replace zeros with a small number to avoid log(0)
     tensor = torch.clamp(tensor, min=1e-9)
     inter = -tensor * torch.log(tensor)
     entropy = inter.sum(-1)
     return entropy
 
-def calc_entropy_batch_list(attn_batch_list):
+def calc_entropy_batch_list(attn_batch_list: List[Tensor]) -> torch.Tensor:
+    """
+    Aggregates and calculates entropy for batches of attention weights.
+    
+    Args:
+        attn_batch_list (List[torch.Tensor]): A list of tensors representing attention weights for multiple batches.
+
+    Returns:
+        torch.Tensor: Aggregated entropy values for each attention head across batches.
+    """
     n_batches = len(attn_batch_list)
     n_layers = len(attn_batch_list[0])
     n_heads = len(attn_batch_list[0][0])
@@ -104,7 +145,16 @@ def calc_entropy_batch_list(attn_batch_list):
         entropy_list.append(torch.stack(head_list))
     return torch.stack(entropy_list) # (n_layers, n_heads, n_batches * batch_size * avg_seq_len)
 
-def sort_by_median(entropy_tensor):
+def sort_by_median(entropy_tensor: Tensor) -> Tuple[Tensor, float, float]:
+    """
+    Sorts attention heads based on median entropy values.
+    
+    Args:
+        entropy_tensor (torch.Tensor): A tensor containing entropy values for attention heads.
+
+    Returns:
+        Tuple containing the sorted tensor and the lower and upper quantile values for entropy.
+    """
     medians = entropy_tensor.median(-1).values # (n_layers, n_heads)
     lower_quantile, upper_quantile = np.percentile(medians.flatten().cpu(), [33, 66])
     # sort medians by heads for each layer
@@ -112,7 +162,18 @@ def sort_by_median(entropy_tensor):
     sorted_tensor = torch.gather(entropy_tensor, 1, sorted_indices)
     return sorted_tensor, lower_quantile, upper_quantile
 
-def assign_color(median, lower_quantile, upper_quantile):
+def assign_color(median: float, lower_quantile: float, upper_quantile: float) -> str:
+    """
+    Determines the color for plotting based on the median's quantile.
+    
+    Args:
+        median (float): The median value of the entropy.
+        lower_quantile (float): The lower quantile of the entropy distribution.
+        upper_quantile (float): The upper quantile of the entropy distribution.
+
+    Returns:
+        str: The color associated with the median's quantile.
+    """
     if median <= lower_quantile:
         return 'blue'
     elif median <= upper_quantile:
@@ -120,7 +181,18 @@ def assign_color(median, lower_quantile, upper_quantile):
     else:
         return 'red'
 
-def plot_entropy(entropy_tensor, lower_quantile, upper_quantile):
+def plot_entropy(entropy_tensor: torch.Tensor, lower_quantile: float, upper_quantile: float) -> plt.Figure:
+    """
+    Plots the entropy distributions of attention heads.
+    
+    Args:
+        entropy_tensor (torch.Tensor): A tensor of sorted entropy values for attention heads.
+        lower_quantile (float): The lower quantile value for the entropy distribution.
+        upper_quantile (float): The upper quantile value for the entropy distribution.
+
+    Returns:
+        matplotlib.figure.Figure: The figure containing the plotted distributions.
+    """
     # Set up the matplotlib figure
     n_layers = entropy_tensor.shape[0]
     n_heads = entropy_tensor.shape[1]

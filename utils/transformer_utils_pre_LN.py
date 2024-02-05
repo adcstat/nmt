@@ -1,3 +1,7 @@
+"""
+This module only differs from tranformer_utils_plain_vanilla by implementing a PreLN instead of PostLN Transformer Architecture.
+Look up said module for informative docstrings :)
+"""
 from torch import Tensor
 import torch
 from torch import nn
