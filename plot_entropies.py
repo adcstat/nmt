@@ -74,7 +74,7 @@ def load_model_and_data(vocab_size: int, param_config: str, model_config: str, c
 
     return model, test_dataloader
 
-def gather_attn_weights(model: torch.nn.module, test_dataloader: DataLoader):
+def gather_attn_weights(model: torch.nn.Module, test_dataloader: DataLoader):
     """
     Gathers attention weights from the model for the given dataset.
 
