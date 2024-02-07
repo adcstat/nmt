@@ -14,6 +14,20 @@ import admin_torch
 PADDING_IDX = 2
 
 class RoPE(nn.Module):
+    """
+    Implements the Rotational Positional Encoding (RoPE) module.
+
+    Args:
+        dim (int): The dimensionality of the input feature space.
+        max_len (int): The maximum length of the input sequences. Defaults to 5000.
+
+    Attributes:
+        dim (int): The dimensionality of the input feature space.
+        max_len (int): The maximum length of the input sequences. Defaults to 5000.
+        Theta (Tensor): A tensor containing the rotational angles for positional encoding.
+        sin (Tensor): The sine component of the positional encodings.
+        cos (Tensor): The cosine component of the positional encodings.
+    """
     def __init__(self, dim: int, max_len: int = 5000):
         super().__init__()
         self.dim = dim
@@ -23,6 +37,18 @@ class RoPE(nn.Module):
         self.register_buffer('cos', torch.cos(self.range_tensor * self.Theta))
 
     def reshape_elements(self, x: Tensor):
+        """
+        Reshapes the input tensor to facilitate rotational encoding.
+
+        This method splits the last dimension of the input tensor into pairs, negates the
+        even-indexed elements, and then recombines the elements to their original ordering.
+
+        Args:
+            x (Tensor): The input tensor with shape (..., dim).
+
+        Returns:
+            Tensor: The reshaped tensor with the same shape as the input.
+        """
         # Reshape the tensor to split the last dimension into pairs
         reshaped = x.clone().reshape(*x.shape[:-1], -1, 2)
         # Negate the even-indexed elements (which are now at index 1 of the innermost dimension due to reshape)
@@ -32,6 +58,15 @@ class RoPE(nn.Module):
         return modified
 
     def forward(self, x: Tensor):
+        """
+        Applies rotational positional encoding to the input tensor.
+
+        Args:
+            x (Tensor): The input tensor with shape (batch_size, sequence_length, dim).
+
+        Returns:
+            Tensor: The positionally encoded tensor with the same shape as the input.
+        """
         x_reshaped = self.reshape_elements(x)
         sequence_length = x.shape[-2]
         Rx = x * self.cos[:sequence_length] + x_reshaped * self.sin[:sequence_length]
@@ -104,6 +139,22 @@ class MultiHeadAttention(nn.Module):
         return attention, prev_new
 
 class SwiGLUFeedForward(nn.Module):
+    """
+    Implements a feedforward neural network module with SwiGLU activation.
+
+    Args:
+        d_model (int): The dimensionality of the input and output feature space.
+        d_ff (int): The dimensionality of the hidden layer.
+        dropout (float): The dropout rate for regularization. Defaults to 0.
+
+    Attributes:
+        W (nn.Linear): The first linear transformation applied to the input.
+        swish (nn.SiLU): The Swish activation function, applied to the output of `W`.
+        V (nn.Linear): A linear transformation applied to the original input, serving as a gate when
+                       multiplied with the Swish-activated output.
+        W_2 (nn.Linear): The second linear transformation, applied to the gated output.
+        dropout (nn.Dropout): Dropout layer applied to the final output for regularization.
+    """
     def __init__(self, d_model: int, d_ff: int, dropout: float = 0.):
         super().__init__()
         self.W = nn.Linear(d_model, d_ff, bias=False)
@@ -113,6 +164,15 @@ class SwiGLUFeedForward(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
+        """
+        Defines the forward pass of the SwiGLUFeedForward module.
+
+        Args:
+            x (Tensor): The input tensor with shape `(batch_size, seq_len, d_model)`.
+
+        Returns:
+            Tensor: The output tensor with the same shape as the input.
+        """
         return self.dropout(self.W_2(self.swish(self.W(x)) * self.V(x)))
 
 class EncoderLayer(nn.Module):
