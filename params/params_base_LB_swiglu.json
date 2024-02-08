@@ -1,5 +1,5 @@
 {
-    "tokens_per_batch": 20000,
+    "tokens_per_batch": 25000,
     "epochs": 50,
     "tokens_per_opt_step": 400000,
     "d_model": 512,
