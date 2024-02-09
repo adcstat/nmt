@@ -1,0 +1,12 @@
+.vscode
+.venv
+__pycache__
+temp/
+data/
+checkpoints/
+archive/
+test.ipynb
+*.pth
+*.tar
+*.zip
+*.gz
