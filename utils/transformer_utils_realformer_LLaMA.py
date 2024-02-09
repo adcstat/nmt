@@ -1,8 +1,6 @@
 """
-This module only differs from tranformer_utils_plain_vanilla by implementing Admin residual connections and Realformer attention residuals
-and some ideas from LLaMA:
-Rotary positional Encoding
-SwiGLU MLP
+This module differs from tranformer_utils_plain_vanilla by implementing Admin residual connections,
+Realformer attention residuals, Rotary positional Encoding and SwiGLU MLP
 Look up said module for informative docstrings :)
 """
 import math
