@@ -204,7 +204,7 @@ def plot_entropy(entropy_tensor: torch.Tensor, lower_quantile: float, upper_quan
             data = entropy_tensor[layer][head].cpu().numpy()
             color = assign_color(np.nanmedian(data), lower_quantile, upper_quantile)
             sns.violinplot(data=data, ax=axes[n_layers-1-layer, head], color=color, orient="h")
-            if layer == n_layers:
+            if layer == n_layers-1:
                 axes[n_layers-1-layer, head].set_title(f"Head: {head+1}")
             if head == 0:
                 axes[n_layers-1-layer, head].set_ylabel(f"Layer {layer+1}")
