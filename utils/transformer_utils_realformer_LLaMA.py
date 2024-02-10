@@ -247,9 +247,13 @@ class Transformer(nn.Module):
         self.encoder = nn.ModuleList([EncoderLayer(n_heads, d_model, d_ff, dropout, n_encoder_layers, masked=False) for _ in range(n_encoder_layers)])
         self.decoder = nn.ModuleList([DecoderLayer(n_heads, d_model, d_ff, dropout, n_decoder_layers) for _ in range(n_decoder_layers)])
 
+        if d_model == 512 :
+            gain = 0.1
+        elif d_model == 1024:
+            gain = 0.8
         for p in self.parameters():
             if p.dim() > 1:
-                nn.init.xavier_uniform_(p, gain=0.8)
+                nn.init.xavier_uniform_(p, gain=gain)
 
     @torch.no_grad()
     def get_attention_weights(self, src, tgt, src_padding_mask, tgt_padding_mask):
