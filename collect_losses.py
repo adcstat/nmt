@@ -23,22 +23,15 @@ def collect_losses(losses_path: str):
     checkpoint_groups = defaultdict(list)
     for fp in fps:
         base_name = os.path.basename(fp)
-        checkpoint_key = "_".join(base_name.split("_")[:-1])
+        checkpoint_key = base_name.rsplit("_", maxsplit=1)[0]
         checkpoint_groups[checkpoint_key].append(fp)
     
     for checkpoint_key, files in checkpoint_groups.items():
-        temp_val_losses = []
         for fp in files:
             checkpoint = torch.load(fp)
             train_losses.extend(np.array(checkpoint["TRAIN_LOSSES"]).T.mean(-1)) # average over GPUs
-            temp_val_losses.append(np.array(checkpoint["VAL_LOSSES"]).mean(-1))
-            print(f"processed {fp}")
-        # Average val losses for checkpoints with multiple files
-        if len(temp_val_losses) > 1:
-            avg_val_loss = np.mean(temp_val_losses, axis=0)
-            val_losses.append(avg_val_loss)
-        else:
-            val_losses.extend(temp_val_losses)
+        val_losses.append(np.array(torch.load(files[-1])["VAL_LOSSES"]).mean(-1))
+        print(f"processed {fp}")
 
     train_losses = np.array(train_losses)
     val_losses = np.array(val_losses)
